@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once __DIR__ . '/../../assets/api/config/database.php';
 
-$stmt = $pdo->prepare("SELECT username, email, created_at FROM users WHERE id = ?");
+$stmt = $pdo->prepare("SELECT name, email, created_at FROM users WHERE id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -34,7 +34,7 @@ if (!$user) {
     <h2>User Profile</h2>
     
     <div class="profile-card">
-    <p><strong>Username:</strong> <?php echo htmlspecialchars($user['username']); ?></p>
+    <p><strong>name:</strong> <?php echo htmlspecialchars($user['name']); ?></p>
     <p><strong>Email:</strong> <?php echo htmlspecialchars($user['email']); ?></p>
     <p><strong>Account Created:</strong> <?php echo htmlspecialchars($user['created_at']); ?></p>
     </div>
@@ -63,14 +63,8 @@ if (!$user) {
                 <h2>Profile Information</h2>
 
                 <div class="profile-grid">
-                    <label>First Name</label>
-                    <input type="text" value="" readonly>
-
-                    <label>Last Name</label>
-                    <input type="text" value="" readonly>
-
-                    <label>Username</label>
-                    <input type="text" value="<?php echo htmlspecialchars($user['username']); ?>" readonly>
+                    <label>Name</label>
+                    <input type="text" value="<?php echo htmlspecialchars($user['name']); ?>" readonly>
 
                     <label>Email</label>
                     <input type="text" value="<?php echo htmlspecialchars($user['email']); ?>" readonly>
