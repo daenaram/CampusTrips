@@ -2,7 +2,7 @@
 session_start();
 
 $BASE_URL      = '/AUT-Web-Based-Travel-Planner/Pages/UserAuthentication';
-$DASHBOARD_URL = '/AUT-Web-Based-Travel-Planner/Pages/userDashboard/userProfile.php';
+$DASHBOARD_URL = '/AUT-Web-Based-Travel-Planner/Pages/userDashboard/Dashboard.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: {$BASE_URL}/signup.html");
@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 require_once __DIR__ . '/../config/database.php';
 
 // Get and sanitize form data
-$username = isset($_POST['username']) ? trim($_POST['username']) : '';
+$name = isset($_POST['name']) ? trim($_POST['name']) : '';
 $email    = isset($_POST['email'])    ? trim($_POST['email'])    : '';
 $password = isset($_POST['password']) ? $_POST['password']       : '';
 $confirmPassword = isset($_POST['confirmPassword']) ? $_POST['confirmPassword'] : '';
@@ -53,13 +53,13 @@ try {
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
     // Insert into database
-    $stmt = $pdo->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
-    $stmt->execute([$username, $email, $hashedPassword]);
+    $stmt = $pdo->prepare("INSERT INTO users (name, email, password) VALUES (?, ?, ?)");
+    $stmt->execute([$name, $email, $hashedPassword]);
 
     // Log the user in
     $userId = $pdo->lastInsertId();
     $_SESSION['user_id']  = $userId;
-    $_SESSION['username'] = $username;
+    $_SESSION['name'] = $name;
 
     // Redirect to dashboard
     header("Location: {$DASHBOARD_URL}");

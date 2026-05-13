@@ -41,7 +41,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <h1>AUT Web-Based Travel Planner</h1>
     <h2>Forgot Password</h2>
 
-        <button type="backButton" onclick="location.href='../UserAuthentication/forgot_password.html'">Try Another Email</buttton>
+        <button type="backButton" onclick="location.href='../UserAuthentication/forgot_password.html'">Try Another Email</button>
         <button type="backButton" onclick="location.href='../UserAuthentication/loginForm.html'">Back to Login</button>
 
 </body>
