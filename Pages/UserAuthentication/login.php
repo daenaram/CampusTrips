@@ -45,6 +45,12 @@ try {
         exit();
     }
 
+    //Check if account is locked out
+    if ($user['locked_out_until'] && strtotime($user['locked_out_until']) > time()) {
+        header("Location: {$BASE_URL}/loginForm.html?error=account_locked");
+        exit();
+    }
+
     // Verify password hash
     if (!password_verify($password, $user['password'])) {
         header("Location: {$BASE_URL}/loginForm.html?error=invalid_credentials");

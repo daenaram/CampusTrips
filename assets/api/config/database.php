@@ -23,12 +23,28 @@ try {
         username     VARCHAR(50),
         email        VARCHAR(100) NOT NULL UNIQUE,
         password     VARCHAR(255) NOT NULL,
+
+        failed_attempts INT DEFAULT 0,
+        locked_out_until DATETIME NULL,
+
         reset_token VARCHAR(255) NULL,
         reset_token_expiry DATETIME NULL,
         created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
-    // Create the trips table if it doesn't exist
+    //Add failed_attempts and locked_out_until columns for account lockout mechanism
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN failed_attempts INT DEFAULT 0");
+    } catch (PDOException $e) {
+        error_log("failed_attempts column may already exist: " . $e->getMessage());    
+    } 
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN locked_out_until DATETIME NULL");
+    } catch (PDOException $e) {
+        error_log("locked_out_until column may already exist: " . $e->getMessage());    
+    }
+
+        // Create the trips table if it doesn't exist
     $pdo->exec("CREATE TABLE IF NOT EXISTS trips (
         id           INT AUTO_INCREMENT PRIMARY KEY,
         user_id      INT NOT NULL,
