@@ -311,3 +311,27 @@ a { display: inline-block; margin-top: 0.5rem; color: #0078d4; }
 .profile-buttons button {
     min-width: 180px;
 }
+
+/* password requirements */
+.password-requirements {
+    margin-top: 8px;
+    padding-left: 18px;
+    font-size: 14px;
+}
+
+.password-requirements li {
+    margin-bottom: 4px;
+    color: red;
+}
+
+.password-requirements li.valid {
+    color: green;
+}
+
+.password-requirements li.valid::before{
+    content: "✔ ";
+}
+
+.password-requirements li::before{
+    content: "✖ ";
+}

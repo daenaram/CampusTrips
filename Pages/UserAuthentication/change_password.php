@@ -21,7 +21,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     } elseif ($new_password !== $confirm_password) {
         $message = "New password and confirmation do not match.";
     } elseif (!preg_match('/^(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/', $new_password)) {
-        $message = "Password must be at least 8 characters and include an uppercase letter, a number, and a symbol.";
+        $message = "New password doesn't meet password requirements.";
     } else {
         $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
         $stmt->execute([$_SESSION['user_id']]);
@@ -68,7 +68,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             <label>New Password:</label><br>
             <input type="password" name="new_password" required><br>
-            <small>Password must be at least 8 characters and include an uppercase letter, a number, and a symbol.</small><br><br>
+            <ul class="password-requirements">
+                <li id="length">At least 8 characters</li>
+                <li id="uppercase">Contains an uppercase letter</li>
+                <li id="number">Contains a number</li>
+                <li id="symbol">Contains a symbol</li>
+            </ul>
 
             <label>Confirm New Password:</label><br>
             <input type="password" name="confirm_password" required><br><br>
@@ -76,5 +81,42 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <button type="submit">Submit New Password</button>
             <button type="backButton" onclick="location.href='../userDashboard/userProfile.php'">Back to Profile</button>
         </form>
+
+        <script>
+            const passwordInput = document.querySelector('input[name="new_password"]');
+
+            const lengthReq = document.getElementById("length");
+            const uppercaseReq = document.getElementById("uppercase");
+            const numberReq = document.getElementById("number");
+            const symbolReq = document.getElementById("symbol");
+
+            passwordInput.addEventListener("input", function () {
+                const value = passwordInput.value;
+
+                if (value.length >= 8) {
+                    lengthReq.classList.add("valid");
+                } else {
+                    lengthReq.classList.remove("valid");
+                }
+
+                if (/[A-Z]/.test(value)) {
+                    uppercaseReq.classList.add("valid");
+                } else {
+                    uppercaseReq.classList.remove("valid");
+                }
+
+                if (/\d/.test(value)) {
+                    numberReq.classList.add("valid");
+                } else {
+                    numberReq.classList.remove("valid");
+                }
+
+                if (/[\W_]/.test(value)) {
+                    symbolReq.classList.add("valid");
+                } else {
+                    symbolReq.classList.remove("valid");
+                }
+            });
+        </script>
     </body>
 </html>
