@@ -35,7 +35,7 @@ function recordFailedLogin(PDO $pdo, string $email): void
 
     $attempts = (int)$user['failed_attempts'] + 1;
 
-    if ($attempts >= 5) {
+    if ($attempts >= 3) {
         $lockUntil = date("Y-m-d H:i:s", strtotime("+15 minutes"));
 
         $stmt = $pdo->prepare("
