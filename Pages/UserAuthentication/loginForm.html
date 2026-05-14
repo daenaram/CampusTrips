@@ -73,5 +73,15 @@
 
     <script src="../../assets/js/login.js"></script>
     <script src="../../assets/js/viewPassword.js"></script>
+
+    <!--Account delete successful message-->
+    <script>
+        const params = new URLSearchParams(window.location.search);
+
+        if (params.get("account_deleted") === "true") {
+            alert("Your account has been deleted successfully.");
+        }
+    </script>
+
 </body>
 </html>

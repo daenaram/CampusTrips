@@ -70,8 +70,9 @@ if (!$user) {
                     <input type="text" value="<?php echo htmlspecialchars($user['email']); ?>" readonly>
             </div>
            <div class="profile-buttons">
-            <button onclick="location.href='../UserAuthentication/change_password.php'">Change Password</button>
-            <button type="backButton" onclick="location.href='Dashboard.php'">Back to Dashboard</button>
+            <button type="button"onclick="location.href='../UserAuthentication/change_password.php'">Change Password</button>
+            <button type="button" onclick="location.href='deleteAccount.php'">Delete Account</button>
+            <button type="button" onclick="location.href='Dashboard.php'">Back to Dashboard</button>
             </div>
         </div>
     </div>
