@@ -2,6 +2,7 @@
 // Start session for user authentication
 session_start();
 
+
 // Define redirect URLs
 $BASE_URL      = '/AUT-Web-Based-Travel-Planner/Pages/UserAuthentication';
 $DASHBOARD_URL = '/AUT-Web-Based-Travel-Planner/Pages/userDashboard/Dashboard.php';
@@ -14,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 // Include database connection
 require_once __DIR__ . '/../../assets/api/config/database.php';
+require_once __DIR__ .'/../../Pages/UserAuthentication/login_security.php';
 
 // Get and sanitize form data
 $email    = isset($_POST['email'])    ? trim($_POST['email'])    : '';
@@ -35,7 +37,7 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 
 try {
     // Query database for user by email
-    $stmt = $pdo->prepare("SELECT id, name, password FROM users WHERE email = ?");
+    $stmt = $pdo->prepare("SELECT id, name, password, failed_attempts, locked_out FROM users WHERE email = ?");
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -45,17 +47,25 @@ try {
         exit();
     }
 
-    //Check if account is locked out
-    if ($user['locked_out_until'] && strtotime($user['locked_out_until']) > time()) {
+    //check if account is locked
+    if(isAccountLocked($pdo, $email)) {
         header("Location: {$BASE_URL}/loginForm.html?error=account_locked");
         exit();
     }
 
+
     // Verify password hash
     if (!password_verify($password, $user['password'])) {
+
+        // Record failed login attempt
+        recordFailedLogin($pdo, $email);
+
         header("Location: {$BASE_URL}/loginForm.html?error=invalid_credentials");
         exit();
     }
+
+    // Reset failed login attempts on successful login
+    resetFailedLogins($pdo, $email);
 
     // Store user data in session
     $_SESSION['user_id']  = $user['id'];

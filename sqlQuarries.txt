@@ -9,5 +9,7 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     reset_token VARCHAR(255) NULL,
-    reset_token_expiry DATETIME NULL
+    reset_token_expiry DATETIME NULL,
+    failed_attempts INT DEFAULT 0,
+    locked_out DATETIME DEFAULT NULL
 );

@@ -25,6 +25,8 @@ try {
         password           VARCHAR(255) NOT NULL,
         reset_token        VARCHAR(255) NULL,
         reset_token_expiry DATETIME     NULL,
+        failed_attempts     INT          DEFAULT 0,
+        locked_out   DATETIME     DEFAULT NULL,
         created_at         TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
     )");
 

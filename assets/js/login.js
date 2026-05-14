@@ -14,6 +14,7 @@ const errorMessages = {
     'all_fields_required': { title: 'Missing Fields', message: 'Please enter both email and password.' },
     'invalid_email': { title: 'Invalid Email', message: 'Please enter a valid email address.' },
     'invalid_credentials': { title: 'Login Failed', message: 'Incorrect email or password. Please try again.' },
+    'account_locked': { title: 'Account Locked', message: 'Your account is temporarily locked due to multiple failed login attempts. Please try again later.' },
     'server_error': { title: 'Server Error', message: 'Something went wrong on our end. Please try again later.' }
 };
 
