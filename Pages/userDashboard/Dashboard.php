@@ -164,6 +164,7 @@ try {
         clickedButton.classList.add('active');
     }
  </script>
+ 
 <!--  -->
 
  <div class="savedTrips">
@@ -239,6 +240,10 @@ try {
                     <label>
                         End Date
                         <input type="date" name="end_date" value="<?php echo htmlspecialchars($_POST['end_date'] ?? ''); ?>" required>
+                    </label>
+                    <label>
+                        Add Notes
+                        <textarea rows="8" cols="40"name="notes" placeholder="Notes about the trip..."><?php echo htmlspecialchars($_POST['notes'] ?? ''); ?></textarea>
                     </label>
                     <label>
                         Group Size
