@@ -90,8 +90,6 @@ try {
         <button class="tab-btn active" onclick="showSearchTab('flights', this)">Flights</button>
         <button class="tab-btn" onclick="showSearchTab('accommodation', this)">Accommodation</button>
         <button class="tab-btn" onclick="showSearchTab('activities', this)">Activities</button>
-        <button class="tab-btn" onclick="showSearchTab('budget', this)">Budget</button>
-        <button class="tab-btn" onclick="showSearchTab('itinerary', this)">Itinerary Building</button>
     </div>
 
     <form method="POST" action="/AUT-Web-Based-Travel-Planner/Pages/userDashboard/searchBoard.php" class="search-panel active-panel" id="flights">
@@ -120,15 +118,6 @@ try {
         <button type="submit" class="search-btn">Search</button>
     </form>
 
-    <div id="budget" class="search-panel">
-        <input type="text" placeholder="Search budget...">
-        <button class="search-btn">Search</button>
-    </div>
-
-    <div id="itinerary" class="search-panel">
-        <input type="text" placeholder="Search itinerary...">
-        <button class="search-btn">Search</button>
-    </div>
 </div>
 
 <!--  -->
