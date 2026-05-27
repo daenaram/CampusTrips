@@ -16,7 +16,7 @@ function searchActivities(PDO $pdo, array $data): array {
     }
 
     if ($city !== '') {
-        $conditions[] = 'city LIKE :city';
+        $conditions[] = '(city LIKE :city OR country LIKE :city)';
         $params[':city'] = "%$city%";
     }
 
