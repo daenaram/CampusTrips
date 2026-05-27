@@ -48,9 +48,9 @@ if ($activityCount === 0) {
     $stmt = $pdo->prepare(
         "INSERT INTO activities
             (activity_name, city, country, category,
-             activity_date, activity_time,
+             activity_date,
              cost_nzd, rating, description)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     );
 
     foreach ($activities as $activity) {
@@ -65,9 +65,9 @@ if ($activityCount === 0) {
         $minute    = [0, 15, 30, 45][rand(0, 3)];
 
         $activityDate = date('Y-m-d', strtotime("+{$daysAhead} days"));
-        $activityTime = sprintf('%02d:%02d:00', $hour, $minute);
+        // $activityTime = sprintf('%02d:%02d:00', $hour, $minute);
 
-        $cost   = rand(0, 250);
+        $cost   = rand(20, 250);
         $rating = round(rand(35, 50) / 10, 1);
 
         $description = "{$activityName} in {$city}, {$country}";
@@ -78,7 +78,7 @@ if ($activityCount === 0) {
             $country,
             $category,
             $activityDate,
-            $activityTime,
+            // $activityTime,
             $cost,
             $rating,
             $description

@@ -199,8 +199,7 @@ if ($searchPerformed) {
                                     <?php echo htmlspecialchars($activity['city']); ?>, <?php echo htmlspecialchars($activity['country']); ?>
                                 </div>
                                 <div class="activity-details">
-                                    <span><strong>Date:</strong> <?php echo htmlspecialchars($activity['activity_date']); ?></span>
-                                    <span><strong>Time:</strong> <?php echo htmlspecialchars(substr($activity['activity_time'], 0, 5)); ?></span>
+                                    <span><strong>Date:</strong> <?php echo date('d F Y', strtotime($activity['activity_date'])); ?></span>
                                 </div>
                                 <p class="activity-description">
                                 <?php echo htmlspecialchars($activity['description']); ?>
