@@ -88,8 +88,6 @@ if ($searchPerformed) {
             <button class="tab-btn <?php echo $activeTab === 'flights' ? 'active' : ''; ?>" onclick="showSearchTab('flights', this)">Flights</button>
             <button class="tab-btn <?php echo $activeTab === 'accommodation' ? 'active' : ''; ?>" onclick="showSearchTab('accommodation', this)">Accommodation</button>
             <button class="tab-btn <?php echo $activeTab === 'activities' ? 'active' : ''; ?>" onclick="showSearchTab('activities', this)">Activities</button>
-            <button class="tab-btn" onclick="showSearchTab('budget', this)">Budget</button>
-            <button class="tab-btn" onclick="showSearchTab('itinerary', this)">Itinerary Building</button>
         </div>
 
         <!-- Flight Search Form -->
@@ -122,15 +120,6 @@ if ($searchPerformed) {
             <button type="submit" class="search-btn">Search</button>
         </form>
 
-        <div id="budget" class="search-panel">
-            <input type="text" placeholder="Search budget...">
-            <button class="search-btn">Search</button>
-        </div>
-
-        <div id="itinerary" class="search-panel">
-            <input type="text" placeholder="Search itinerary...">
-            <button class="search-btn">Search</button>
-        </div>
     </div>
 
     <!-- Search results section -->
