@@ -85,7 +85,7 @@ try {
 
 <!-- Search bar prototype -->
 
-<div class="search-container">
+<div class="search-container-dashBoard">
     <div class="search-tabs">
         <button class="tab-btn active" onclick="showSearchTab('flights', this)">Flights</button>
         <button class="tab-btn" onclick="showSearchTab('accommodation', this)">Accommodation</button>
@@ -96,6 +96,14 @@ try {
         <input type="hidden" name="search_type" value="flights">
         <input type="text" name="departure_city" placeholder="Starting Location...">
         <input type="text" name="arrival_city" placeholder="Destination...">
+        <select name="airline" id="airline">
+            <option value="">Any Airline</option>
+            <option value="Air New Zealand">Air New Zealand</option>
+            <option value="Qantas">Qantas</option>
+            <option value="Jetstar">Jetstar</option>
+            <option value="Emirates">Emirates</option>
+            <option value="Singapore Airlines">Singapore Airlines</option>
+        </select>
         <input type="date" name="departure_date">
         <input type="date" name="return_date">
         <button type="submit" class="search-btn">Search</button>
