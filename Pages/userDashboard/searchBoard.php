@@ -22,6 +22,7 @@ $searchPerformed = $_SERVER['REQUEST_METHOD'] === 'POST';
 $flightSearch = [
     'departure_city' => '',
     'arrival_city' => '',
+    'airline' => '',
     'departure_date' => '',
     'return_date' => '',
 ];
@@ -61,6 +62,7 @@ if ($searchPerformed) {
     } else {
         $flightSearch['departure_city'] = trim($_POST['departure_city'] ?? '');
         $flightSearch['arrival_city'] = trim($_POST['arrival_city'] ?? '');
+        $flightSearch['airline'] = trim($_POST['airline'] ?? '');
         $flightSearch['departure_date'] = trim($_POST['departure_date'] ?? '');
         $flightSearch['return_date'] = trim($_POST['return_date'] ?? '');
         $flights = searchFlights($pdo, $flightSearch);
@@ -82,8 +84,18 @@ if ($searchPerformed) {
     <link rel="stylesheet" href="../../assets/css/searchBoard.css">
 </head>
 <body>
+    <div class="top-right-actions">
+        <button  class="signout-btn" onclick="location.href='Dashboard.php'">Back to Dashboard</button>
+    <button class="profile-btn" onclick="location.href='userProfile.php'">
+        <div class="mini-avatar"></div>
+    </button>
+
+    <button class="signout-btn" onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">
+        Sign Out
+    </button>
+</div>
     <!-- Page heading for profile setup -->
-    <div class="search-container">
+    <div class="search-container-searchBoard">
         <div class="search-tabs">
             <button class="tab-btn <?php echo $activeTab === 'flights' ? 'active' : ''; ?>" onclick="showSearchTab('flights', this)">Flights</button>
             <button class="tab-btn <?php echo $activeTab === 'accommodation' ? 'active' : ''; ?>" onclick="showSearchTab('accommodation', this)">Accommodation</button>
@@ -95,10 +107,18 @@ if ($searchPerformed) {
             <input type="hidden" name="search_type" value="flights">
             <input type="text" name="departure_city" placeholder="Starting Location..." value="<?php echo htmlspecialchars($flightSearch['departure_city']); ?>">
             <input type="text" name="arrival_city" placeholder="Destination..." value="<?php echo htmlspecialchars($flightSearch['arrival_city']); ?>">
+            <select name="airline" id="airline-search">
+                <option value="" <?php echo $flightSearch['airline'] === '' ? 'selected' : ''; ?>>Any Airline</option>
+                <option value="Air New Zealand" <?php echo $flightSearch['airline'] === 'Air New Zealand' ? 'selected' : ''; ?>>Air New Zealand</option>
+                <option value="Qantas" <?php echo $flightSearch['airline'] === 'Qantas' ? 'selected' : ''; ?>>Qantas</option>
+                <option value="Jetstar" <?php echo $flightSearch['airline'] === 'Jetstar' ? 'selected' : ''; ?>>Jetstar</option>
+                <option value="Emirates" <?php echo $flightSearch['airline'] === 'Emirates' ? 'selected' : ''; ?>>Emirates</option>
+                <option value="Singapore Airlines" <?php echo $flightSearch['airline'] === 'Singapore Airlines' ? 'selected' : ''; ?>>Singapore Airlines</option>
+            </select>
             <input type="date" name="departure_date" value="<?php echo htmlspecialchars($flightSearch['departure_date']); ?>">
             <input type="date" name="return_date" value="<?php echo htmlspecialchars($flightSearch['return_date']); ?>">
             <button type="submit" class="search-btn">Search</button>
-            <button type="button" class="search-btn" onclick="location.href='Dashboard.php'">Back to Dashboard</button>
+            
         </form>
 
         <!-- Accommodation search form with additional fields for city and type -->
@@ -278,11 +298,16 @@ if ($searchPerformed) {
         function showSearchTab(tabId, clickedButton) {
             const panels = document.querySelectorAll('.search-panel');
             const buttons = document.querySelectorAll('.tab-btn');
+            const activeForm = document.getElementById(tabId);
 
             panels.forEach(panel => panel.classList.remove('active-panel'));
             buttons.forEach(button => button.classList.remove('active'));
 
-            document.getElementById(tabId).classList.add('active-panel');
+            if (activeForm && activeForm.tagName === 'FORM') {
+                activeForm.classList.add('active-panel');
+                activeForm.submit();
+            }
+
             clickedButton.classList.add('active');
         }
     </script>
