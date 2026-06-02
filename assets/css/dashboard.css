@@ -237,8 +237,8 @@ body {
 
 .hero-overlay h1 {
     position: absolute;
-    top: 25px;
-    left: 35px;
+    top: 10px;
+    left: 15px;
     font-size: 60px;
     margin: 0;
     line-height: 1;
@@ -246,8 +246,8 @@ body {
 
 .hero-overlay h2 {
     position: absolute;
-    top: 90px;
-    left: 38px;
+    top: 80px;
+    left: 23px;
     font-size: 18px;
     margin: 0;
 }
