@@ -76,12 +76,15 @@ try {
 </head>
 <body>
 
-<h1>CampusTrips</h1>
-<h1>AUT Web-Based Travel Planner</h1>
-<?php if (isset($_SESSION['name'])): ?>
-    <p>Welcome, <?php echo htmlspecialchars($_SESSION['name']); ?>!</p>
-<?php endif; ?>
-<p>Here you can manage your travel plans, view your itinerary, and access exclusive travel deals</p>
+<div class="dashboard-hero">
+    <div class="hero-overlay">    
+        <h1>CampusTrips</h1>
+        <h2>AUT Web-Based Travel Planner</h2>
+        <?php if (isset($_SESSION['name'])): ?>
+            <p>Welcome, <?php echo htmlspecialchars($_SESSION['name']); ?>! Here you can manage your travel plans, view your itinerary, and access exclusive travel deals.</p>
+        <?php endif; ?>
+    </div>
+</div>
 
 <!-- Search bar prototype -->
 

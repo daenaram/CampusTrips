@@ -5,6 +5,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    z-index: 50;
 }
 
 .profile-btn {
@@ -70,9 +71,10 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
 }
 .search-container-dashBoard {
-    max-width: 80%;
-    margin: 3rem auto;
-    margin-bottom: 0;
+    max-width: 1100px;
+    position: relative;
+    z-index: 20;
+    margin: -50px auto 0;
     padding: 1.2rem;
     background: #fff;
     border: 1px solid #e3e6ea;

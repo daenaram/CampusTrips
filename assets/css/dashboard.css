@@ -4,7 +4,7 @@ body {
     font-family: Arial, Helvetica, sans-serif;
     background: #f7f9fc;
     color: #222;
-    margin: 2rem;
+    margin: 0;
 }
 
 .savedTrips {
@@ -213,3 +213,52 @@ body {
     text-align: center;
     min-height: 120px;
 }
+
+.dashboard-hero {
+    position: relative;
+    margin: 0;
+    width: 100vw;
+    height: 260px;
+    background-image: linear-gradient(
+        rgba(0,0,0,0.35),
+        rgba(0,0,0,0.35)
+    ), url("../../assets/images/dashboard-hero.jpg");
+    background-size: cover;
+    background-position: center;
+    z-index: 10;
+}
+
+.hero-overlay {
+    height: 100%;
+    padding: 0;
+    background: transparent;
+    color: white;
+}
+
+.hero-overlay h1 {
+    position: absolute;
+    top: 25px;
+    left: 35px;
+    font-size: 60px;
+    margin: 0;
+    line-height: 1;
+}
+
+.hero-overlay h2 {
+    position: absolute;
+    top: 90px;
+    left: 38px;
+    font-size: 18px;
+    margin: 0;
+}
+
+.hero-overlay p {
+    position: absolute;
+    bottom: 80px;
+    width: 100%;
+    margin: 0;
+    text-align: center;
+    font-weight: bold;
+    font-size: 20px;
+}
+
