@@ -36,6 +36,10 @@ body {
     border-radius: 999px;
 }
 
+.search-container-dashBoard {
+    scroll-margin-top: 90px;
+}
+
 .trip-card {
     background: #ffffff;
     border: 1px solid #e3e6ea;
@@ -103,11 +107,13 @@ body {
 }
 
 .modal-window {
-    width: min(520px, 100%);
+    width: min(1014px, 95vw);
+    max-width: 1014px;
+    max-height: 92vh;
+    overflow-y: auto;
     background: #ffffff;
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
-    overflow: hidden;
 }
 
 .modal-header {
@@ -203,6 +209,97 @@ body {
 
 .trip-card-detail strong {
     color: #333;
+}
+
+.trip-card-actions {
+    margin-top: 0.75rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.trip-action-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 0.6rem 1rem;
+    background: #0078d4;
+    color: white;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.trip-details-template {
+    display: none;
+}
+
+.trip-details-section {
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.trip-details-section h5 {
+    margin: 0 0 0.5rem;
+    color: #111827;
+}
+
+.trip-details-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.6rem;
+}
+
+.trip-action-link {
+    border: none;
+    border-radius: 999px;
+    padding: 0.5rem 0.9rem;
+    margin-top: 0.5rem;
+    background: #e8f3ff;
+    color: #005a9e;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.trip-notes-form textarea {
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    padding: 0.8rem;
+    box-sizing: border-box;
+    resize: vertical;
+}
+
+.trip-details-section ul {
+    margin: 0;
+    padding-left: 1.2rem;
+    display: grid;
+    gap: 0.45rem;
+}
+
+.trip-details-section li {
+    color: #374151;
+}
+
+.trip-details-section li strong {
+    display: block;
+}
+
+.trip-details-section li span {
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+.trip-details-empty {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+.trip-details-summary h4 {
+    margin: 0 0 0.5rem;
+}
+
+.trip-details-summary p {
+    margin: 0.25rem 0;
 }
 
 .empty-trip-card {

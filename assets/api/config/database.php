@@ -38,11 +38,21 @@ try {
         destination  VARCHAR(100) NOT NULL,
         start_date   DATE         NOT NULL,
         end_date     DATE         NOT NULL,
-        group_size   INT          DEFAULT 1,
+        notes        TEXT,
         travel_style VARCHAR(50),
         created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )");
+
+    $tripNotesColumn = $pdo->query("SHOW COLUMNS FROM trips LIKE 'notes'")->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($tripNotesColumn)) {
+        $pdo->exec("ALTER TABLE trips ADD COLUMN notes TEXT AFTER end_date");
+    }
+
+    $tripGroupSizeColumn = $pdo->query("SHOW COLUMNS FROM trips LIKE 'group_size'")->fetchAll(PDO::FETCH_ASSOC);
+    if (!empty($tripGroupSizeColumn)) {
+        $pdo->exec("ALTER TABLE trips DROP COLUMN group_size");
+    }
 
     // Flights — temporary dummy search pool
     $pdo->exec("CREATE TABLE IF NOT EXISTS flights (
@@ -121,6 +131,23 @@ try {
         amenities           TEXT,
         notes               TEXT,
         added_at            TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
+    )");
+
+    // Saved attractions for trips
+    $pdo->exec("CREATE TABLE IF NOT EXISTS saved_activities (
+        id                INT AUTO_INCREMENT PRIMARY KEY,
+        user_id           INT           NOT NULL,
+        trip_id           INT           NOT NULL,
+        name              VARCHAR(150)  NOT NULL,
+        city              VARCHAR(100)  NOT NULL,
+        category          VARCHAR(50)   NOT NULL,
+        activity_date     DATE,
+        cost_nzd          DECIMAL(10,2) DEFAULT 0.00,
+        description       TEXT,
+        notes             TEXT,
+        added_at          TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
     )");
