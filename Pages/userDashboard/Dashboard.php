@@ -266,14 +266,29 @@ try {
                             <p class="trip-details-empty">No flights added for this trip yet.</p>
                             <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="flights">Add Flight</button>
                         <?php else: ?>
-                            <ul>
+                            <div class="saved-items-grid">
                                 <?php foreach ($tripDetails[$tripId]['flights'] as $flight): ?>
-                                    <li>
-                                        <strong><?php echo htmlspecialchars($flight['airline'] . ' ' . $flight['flight_number']); ?></strong>
-                                        <span><?php echo htmlspecialchars($flight['departure_city'] . ' → ' . $flight['arrival_city']); ?></span>
-                                    </li>
+                                    <div class="saved-item-card saved-item-flight-card">
+                                        <div class="saved-item-header">
+                                            <h4><?php echo htmlspecialchars($flight['airline'] . ' ' . $flight['flight_number']); ?></h4>
+                                            <span class="saved-item-badge">Flight</span>
+                                        </div>
+                                        <div class="saved-item-meta">
+                                            <span><strong>Route:</strong> <?php echo htmlspecialchars($flight['departure_city'] . ' → ' . $flight['arrival_city']); ?></span>
+                                            <span><strong>From:</strong> <?php echo htmlspecialchars($flight['departure_airport']); ?></span>
+                                            <span><strong>To:</strong> <?php echo htmlspecialchars($flight['arrival_airport']); ?></span>
+                                            <span><strong>Departure:</strong> <?php echo htmlspecialchars($flight['departure_datetime'] ? date('d M Y H:i', strtotime($flight['departure_datetime'])) : 'TBD'); ?></span>
+                                            <span><strong>Arrival:</strong> <?php echo htmlspecialchars($flight['arrival_datetime'] ? date('d M Y H:i', strtotime($flight['arrival_datetime'])) : 'TBD'); ?></span>
+                                            <span><strong>Duration:</strong> <?php echo htmlspecialchars(floor($flight['duration_minutes'] / 60) . 'h ' . ($flight['duration_minutes'] % 60) . 'm'); ?></span>
+                                            <span><strong>Stops:</strong> <?php echo htmlspecialchars($flight['stops'] == 0 ? 'Direct' : $flight['stops'] . ' stop' . ($flight['stops'] > 1 ? 's' : '')); ?></span>
+                                        </div>
+                                        <div class="saved-item-footer">
+                                            <span>NZD <?php echo htmlspecialchars(number_format($flight['price_nzd'], 0)); ?></span>
+                                            <span><?php echo htmlspecialchars($flight['cabin_class'] ?: 'Economy'); ?></span>
+                                        </div>
+                                    </div>
                                 <?php endforeach; ?>
-                            </ul>
+                            </div>
                         <?php endif; ?>
                     </div>
 
@@ -283,14 +298,27 @@ try {
                             <p class="trip-details-empty">No hotel plans added for this trip yet.</p>
                             <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="accommodation">Add Hotel</button>
                         <?php else: ?>
-                            <ul>
+                            <div class="saved-items-grid">
                                 <?php foreach ($tripDetails[$tripId]['hotels'] as $hotel): ?>
-                                    <li>
-                                        <strong><?php echo htmlspecialchars($hotel['name']); ?></strong>
-                                        <span><?php echo htmlspecialchars($hotel['city'] . ', ' . $hotel['country']); ?></span>
-                                    </li>
+                                    <div class="saved-item-card saved-item-hotel-card">
+                                        <div class="saved-item-header">
+                                            <h4><?php echo htmlspecialchars($hotel['name']); ?></h4>
+                                            <span class="saved-item-badge">Hotel</span>
+                                        </div>
+                                        <div class="saved-item-meta">
+                                            <span><strong>Location:</strong> <?php echo htmlspecialchars($hotel['city'] . ', ' . $hotel['country']); ?></span>
+                                            <span><strong>Type:</strong> <?php echo htmlspecialchars($hotel['type']); ?></span>
+                                            <span><strong>Check-in:</strong> <?php echo htmlspecialchars($hotel['planned_check_in'] ? date('d M Y', strtotime($hotel['planned_check_in'])) : 'TBD'); ?></span>
+                                            <span><strong>Check-out:</strong> <?php echo htmlspecialchars($hotel['planned_check_out'] ? date('d M Y', strtotime($hotel['planned_check_out'])) : 'TBD'); ?></span>
+                                            <span><strong>Rating:</strong> <?php echo htmlspecialchars($hotel['rating'] ?: 'N/A'); ?></span>
+                                        </div>
+                                        <div class="saved-item-footer">
+                                            <span>NZD <?php echo htmlspecialchars(number_format($hotel['price_per_night_nzd'], 0)); ?> / night</span>
+                                            <span><?php echo htmlspecialchars($hotel['address']); ?></span>
+                                        </div>
+                                    </div>
                                 <?php endforeach; ?>
-                            </ul>
+                            </div>
                         <?php endif; ?>
                     </div>
 
@@ -300,14 +328,23 @@ try {
                             <p class="trip-details-empty">No attractions added for this trip yet.</p>
                             <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="activities">Add Attraction</button>
                         <?php else: ?>
-                            <ul>
+                            <div class="saved-items-grid">
                                 <?php foreach ($tripDetails[$tripId]['attractions'] as $attraction): ?>
-                                    <li>
-                                        <strong><?php echo htmlspecialchars($attraction['name']); ?></strong>
-                                        <span><?php echo htmlspecialchars($attraction['city'] . ' • ' . $attraction['category']); ?></span>
-                                    </li>
+                                    <div class="saved-item-card saved-item-activity-card">
+                                        <div class="saved-item-header">
+                                            <h4><?php echo htmlspecialchars($attraction['name']); ?></h4>
+                                            <span class="saved-item-badge">Attraction</span>
+                                        </div>
+                                        <div class="saved-item-meta">
+                                            <span><strong>Category:</strong> <?php echo htmlspecialchars($attraction['category']); ?></span>
+                                            <span><strong>Location:</strong> <?php echo htmlspecialchars($attraction['city']); ?></span>
+                                            <span><strong>Date:</strong> <?php echo htmlspecialchars($attraction['activity_date'] ? date('d M Y', strtotime($attraction['activity_date'])) : 'TBD'); ?></span>
+                                            <span><strong>Cost:</strong> NZD <?php echo htmlspecialchars(number_format($attraction['cost_nzd'], 0)); ?></span>
+                                        </div>
+                                        <p class="saved-item-description"><?php echo htmlspecialchars($attraction['description']); ?></p>
+                                    </div>
                                 <?php endforeach; ?>
-                            </ul>
+                            </div>
                         <?php endif; ?>
                     </div>
 
