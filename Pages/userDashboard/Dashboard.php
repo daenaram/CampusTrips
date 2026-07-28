@@ -249,6 +249,28 @@ try {
                         <strong>Dates</strong>
                         <span><?php echo htmlspecialchars($trip['start_date']); ?> → <?php echo htmlspecialchars($trip['end_date']); ?></span>
                     </div>
+                    <?php 
+                        $startDate = new DateTime($trip['start_date']);
+                        $endDate = new DateTime($trip['end_date']);
+
+                        $totalDays = $startDate->diff($endDate)->days + 1;
+
+                        $weeks = floor($totalDays / 7);
+                        $days = $totalDays % 7;
+
+                        if ($weeks > 0 && $days > 0){
+                            $duration = $weeks . " week" . ($weeks > 1 ? "s" : "") . " " .
+                                        $days . " day" . ($days > 1 ? "s" : "");
+                        } elseif ($weeks > 0){
+                            $duration = $weeks . " week" . ($weeks > 1 ? "s" : "");
+                        } else {
+                            $duration = $days . " day" . ($days > 1 ? "s" : "");
+                        }
+                    ?>
+                    <div class="trip-card-detail">
+                        <strong>Trip Duration</strong>
+                        <span><?php echo $duration; ?></span>
+                    </div>
                     <div class="trip-card-actions">
                         <button type="button" class="trip-action-btn view-details-btn" data-trip-id="<?php echo $tripId; ?>">View Details</button>
                     </div>
@@ -258,6 +280,7 @@ try {
                         <h4><?php echo htmlspecialchars($trip['title']); ?></h4>
                         <p><strong>Destination:</strong> <?php echo htmlspecialchars($trip['destination']); ?></p>
                         <p><strong>Dates:</strong> <?php echo htmlspecialchars($trip['start_date']); ?> → <?php echo htmlspecialchars($trip['end_date']); ?></p>
+                        <p><strong>Trip Duration:</strong> <?php echo $duration; ?></p>
                     </div>
 
                     <div class="trip-details-section">
@@ -347,6 +370,33 @@ try {
                             </div>
                         <?php endif; ?>
                     </div>
+
+                    <div class="trip-details-section">
+                        <h5>Estimated Travel Duration</h5>
+                        <?php if (empty($tripDetails[$tripId]['flights'])): ?>
+                            <p class="trip-details-empty">Add trip items to estimate travel duration.</p>
+                        <?php else: ?>
+                            <div class="saved-items-grid">
+                                <?php foreach ($tripDetails[$tripId]['flights'] as $flight): ?>
+                                    <div class="saved-item-card saved-item-activity-card">
+                                        <div class="saved-item-header">
+                                            <h4><?php echo htmlspecialchars(floor($flight['duration_minutes'] / 60) . ' hours ' . ($flight['duration_minutes'] % 60) . ' minutes '); ?></h4>
+                                            <span class="saved-item-badge">Estimate</span>
+                                        </div>
+                                        <div class="saved-item-meta">
+                                            <span><strong>Flight Duration:</strong> <?php echo htmlspecialchars(floor($flight['duration_minutes'] / 60) . ' hours ' . ($flight['duration_minutes'] % 60) . ' minutes '); ?></span>
+                                            <span><strong>Airport to Hotel:</strong> -- </span>
+                                            <span><strong>Hotel to Activity:</strong> -- </span>
+                                            <span><strong>Activity to Airport:</strong> -- </span>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    
+
 
                     <div class="trip-details-section">
                         <h5>Notes</h5>
