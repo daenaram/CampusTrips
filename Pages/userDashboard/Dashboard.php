@@ -215,8 +215,25 @@ try {
 <!--  -->
 
  <div class="savedTrips">
-    <h2>Your Saved Trips</h2>
-    <p>View and manage your saved trips here.</p>
+    
+    <div class="savedTrips-header">
+
+        <div class="savedTrips-title">
+            <h2>Your Saved Trips</h2>
+            <p>View and manage your saved trips here.</p>
+        </div>
+        
+        <div class="sort-container">
+                <label for="sortTrips">Sort by:</label>
+                <select id="sortTrips">
+                    <option value="newest">Date Created (Newest)</option>
+                    <option value="oldest">Date Created (Oldest)</option>
+                    <option value="soonest">Trip Coming Soon</option>
+                    <option value="latest">Trip Furthest Away</option>
+                </select>    
+        </div>
+        
+    </div>
 
     <div class="trip-grid">
         <div class="trip-card new-trip-card">

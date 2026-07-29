@@ -55,6 +55,40 @@ body {
     scroll-snap-align: start;
 }
 
+.savedTrips-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 25px;
+}
+
+.savedTrips-title h2 {
+    margin: 0;
+}
+
+.savedTrips-header p {
+    margin-top: 10px;
+    margin-bottom: 0;
+}
+
+.sort-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sort-container label {
+    font-weight: 600;
+}
+
+.sort-container select {
+    padding: 8px 12px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
 .new-trip-card {
     border: 2px dashed #0078d4;
     background: #f3f8ff;
