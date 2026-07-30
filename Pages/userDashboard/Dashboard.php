@@ -74,10 +74,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_notes'])) {
     }
 }
 
+// $trips = [];
+// $tripDetails = [];
+// try {
+//     $stmt = $pdo->prepare("SELECT id, title, destination, start_date, end_date, notes FROM trips WHERE user_id = ? ORDER BY start_date ASC");
+//     $stmt->execute([$_SESSION['user_id']]);
+//     $trips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$sort = $_GET['sort'] ?? 'soonest';
+
+switch ($sort) {
+    case 'newest':
+        $orderBy = "created_at DESC";
+        break;
+
+    case 'oldest':
+        $orderBy = "created_at ASC";
+        break;
+
+    case 'latest':
+        $orderBy = "start_date DESC";
+        break;
+
+    case 'soonest':
+        $orderBy = "start_date ASC";
+        break;
+}
+
 $trips = [];
 $tripDetails = [];
+
 try {
-    $stmt = $pdo->prepare("SELECT id, title, destination, start_date, end_date, notes FROM trips WHERE user_id = ? ORDER BY start_date ASC");
+
+    $stmt = $pdo->prepare("
+        SELECT id, title, destination, start_date, end_date, notes
+        FROM trips
+        WHERE user_id = ?
+        ORDER BY $orderBy
+    ");
+
     $stmt->execute([$_SESSION['user_id']]);
     $trips = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -223,7 +258,7 @@ try {
             <p>View and manage your saved trips here.</p>
         </div>
         
-        <div class="sort-container">
+        <!-- <div class="sort-container">
                 <label for="sortTrips">Sort by:</label>
                 <select id="sortTrips">
                     <option value="newest">Date Created (Newest)</option>
@@ -231,8 +266,34 @@ try {
                     <option value="soonest">Trip Coming Soon</option>
                     <option value="latest">Trip Furthest Away</option>
                 </select>    
-        </div>
-        
+        </div> -->
+
+        <form method="GET" class="sort-container">
+
+            <label for="sortTrips">Sort by:</label>
+
+            <select id="sortTrips" name="sort" onchange="this.form.submit()">
+
+            <option value="soonest" <?= $sort == 'soonest' ? 'selected': '' ?>>
+                Trip Coming Soon
+            </option>
+
+            <option value="latest" <?= $sort == 'latest' ? 'selected': '' ?>>
+                Trip Furthest Away
+            </option>
+
+            <option value="newest" <?= $sort == 'newest' ? 'selected': '' ?>>
+                Date Created (Newest)
+            </option>
+
+            <option value="oldest" <?= $sort == 'oldest' ? 'selected': '' ?>>
+                Date Created (Oldest)
+            </option>
+
+            </select>
+
+        </form>
+
     </div>
 
     <div class="trip-grid">
