@@ -130,61 +130,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_item'])) {
         } else {
             try {
                 if ($itemType === 'flight') {
-                    $stmt = $pdo->prepare("INSERT INTO saved_flights (user_id, trip_id, airline, flight_number, departure_city, arrival_city, departure_airport, arrival_airport, departure_datetime, arrival_datetime, duration_minutes, stops, cabin_class, price_nzd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([
-                        $_SESSION['user_id'],
-                        $tripId,
-                        trim($_POST['airline_value'] ?? $_POST['airline'] ?? ''),
-                        trim($_POST['flight_number'] ?? ''),
-                        trim($_POST['departure_city'] ?? ''),
-                        trim($_POST['arrival_city'] ?? ''),
-                        trim($_POST['departure_airport'] ?? ''),
-                        trim($_POST['arrival_airport'] ?? ''),
-                        trim($_POST['departure_datetime'] ?? ''),
-                        trim($_POST['arrival_datetime'] ?? ''),
-                        (int)($_POST['duration_minutes'] ?? 0),
-                        (int)($_POST['stops'] ?? 0),
-                        trim($_POST['cabin_class'] ?? 'Economy'),
-                        (float)($_POST['price_nzd'] ?? 0),
-                    ]);
-                    $saveStatus['success'] = 'Flight added to your trip.';
+                    $airlineValue = trim($_POST['airline_value'] ?? $_POST['airline'] ?? '');
+                    $flightNumber = trim($_POST['flight_number'] ?? '');
+                    $departureDatetime = trim($_POST['departure_datetime'] ?? '');
+
+                    // --- Duplicate check: same airline + flight number + departure time already saved to this trip ---
+                    $dupFlightStmt = $pdo->prepare("SELECT id FROM saved_flights WHERE user_id = ? AND trip_id = ? AND airline = ? AND flight_number = ? AND departure_datetime = ?");
+                    $dupFlightStmt->execute([$_SESSION['user_id'], $tripId, $airlineValue, $flightNumber, $departureDatetime]);
+
+                    if ($dupFlightStmt->fetch()) {
+                        $saveStatus['error'] = 'This flight has already been added to this trip.';
+                    } else {
+                        $stmt = $pdo->prepare("INSERT INTO saved_flights (user_id, trip_id, airline, flight_number, departure_city, arrival_city, departure_airport, arrival_airport, departure_datetime, arrival_datetime, duration_minutes, stops, cabin_class, price_nzd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([
+                            $_SESSION['user_id'],
+                            $tripId,
+                            $airlineValue,
+                            $flightNumber,
+                            trim($_POST['departure_city'] ?? ''),
+                            trim($_POST['arrival_city'] ?? ''),
+                            trim($_POST['departure_airport'] ?? ''),
+                            trim($_POST['arrival_airport'] ?? ''),
+                            $departureDatetime,
+                            trim($_POST['arrival_datetime'] ?? ''),
+                            (int)($_POST['duration_minutes'] ?? 0),
+                            (int)($_POST['stops'] ?? 0),
+                            trim($_POST['cabin_class'] ?? 'Economy'),
+                            (float)($_POST['price_nzd'] ?? 0),
+                        ]);
+                        $saveStatus['success'] = 'Flight added to your trip.';
+                    }
                 } elseif ($itemType === 'accommodation') {
+                    $accommodationName = trim($_POST['accommodation_name'] ?? '');
                     $plannedCheckIn = trim($_POST['planned_check_in'] ?? '');
                     $plannedCheckOut = trim($_POST['planned_check_out'] ?? '');
                     $plannedCheckIn = $plannedCheckIn !== '' ? $plannedCheckIn : null;
                     $plannedCheckOut = $plannedCheckOut !== '' ? $plannedCheckOut : null;
 
-                    $stmt = $pdo->prepare("INSERT INTO saved_accommodations (user_id, trip_id, name, type, city, country, address, planned_check_in, planned_check_out, check_in_time, check_out_time, price_per_night_nzd, rating, amenities) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([
-                        $_SESSION['user_id'],
-                        $tripId,
-                        trim($_POST['accommodation_name'] ?? ''),
-                        trim($_POST['accommodation_type'] ?? ''),
-                        trim($_POST['accommodation_city'] ?? ''),
-                        trim($_POST['accommodation_country'] ?? ''),
-                        trim($_POST['accommodation_address'] ?? ''),
-                        $plannedCheckIn,
-                        $plannedCheckOut,
-                        trim($_POST['check_in_time'] ?? '14:00:00'),
-                        trim($_POST['check_out_time'] ?? '11:00:00'),
-                        (float)($_POST['price_per_night_nzd'] ?? 0),
-                        (float)($_POST['rating'] ?? 0),
-                        trim($_POST['amenities'] ?? ''),
-                    ]);
-                    $saveStatus['success'] = 'Accommodation added to your trip.';
+                    // --- Duplicate check: same accommodation name + check-in/check-out already saved to this trip ---
+                    $dupHotelStmt = $pdo->prepare("SELECT id FROM saved_accommodations WHERE user_id = ? AND trip_id = ? AND name = ? AND planned_check_in <=> ? AND planned_check_out <=> ?");
+                    $dupHotelStmt->execute([$_SESSION['user_id'], $tripId, $accommodationName, $plannedCheckIn, $plannedCheckOut]);
+
+                    if ($dupHotelStmt->fetch()) {
+                        $saveStatus['error'] = 'This accommodation has already been added to this trip.';
+                    } else {
+                        $stmt = $pdo->prepare("INSERT INTO saved_accommodations (user_id, trip_id, name, type, city, country, address, planned_check_in, planned_check_out, check_in_time, check_out_time, price_per_night_nzd, rating, amenities) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([
+                            $_SESSION['user_id'],
+                            $tripId,
+                            $accommodationName,
+                            trim($_POST['accommodation_type'] ?? ''),
+                            trim($_POST['accommodation_city'] ?? ''),
+                            trim($_POST['accommodation_country'] ?? ''),
+                            trim($_POST['accommodation_address'] ?? ''),
+                            $plannedCheckIn,
+                            $plannedCheckOut,
+                            trim($_POST['check_in_time'] ?? '14:00:00'),
+                            trim($_POST['check_out_time'] ?? '11:00:00'),
+                            (float)($_POST['price_per_night_nzd'] ?? 0),
+                            (float)($_POST['rating'] ?? 0),
+                            trim($_POST['amenities'] ?? ''),
+                        ]);
+                        $saveStatus['success'] = 'Accommodation added to your trip.';
+                    }
                 } elseif ($itemType === 'activity') {
-                    $stmt = $pdo->prepare("INSERT INTO saved_activities (user_id, trip_id, name, city, category, activity_date, cost_nzd, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([
-                        $_SESSION['user_id'],
-                        $tripId,
-                        trim($_POST['activity_name'] ?? ''),
-                        trim($_POST['activity_city'] ?? ''),
-                        trim($_POST['activity_category'] ?? ''),
-                        trim($_POST['activity_date_value'] ?? $_POST['activity_date'] ?? ''),
-                        (float)($_POST['activity_cost_nzd'] ?? 0),
-                        trim($_POST['activity_description'] ?? ''),
-                    ]);
-                    $saveStatus['success'] = 'Activity added to your trip.';
+                    $activityName = trim($_POST['activity_name'] ?? '');
+                    $activityCity = trim($_POST['activity_city'] ?? '');
+                    $activityDate = trim($_POST['activity_date_value'] ?? $_POST['activity_date'] ?? '');
+
+                    // --- Duplicate check: same activity name + city + date already saved to this trip ---
+                    $dupActivityStmt = $pdo->prepare("SELECT id FROM saved_activities WHERE user_id = ? AND trip_id = ? AND name = ? AND city = ? AND activity_date = ?");
+                    $dupActivityStmt->execute([$_SESSION['user_id'], $tripId, $activityName, $activityCity, $activityDate]);
+
+                    if ($dupActivityStmt->fetch()) {
+                        $saveStatus['error'] = 'This activity has already been added to this trip.';
+                    } else {
+                        $stmt = $pdo->prepare("INSERT INTO saved_activities (user_id, trip_id, name, city, category, activity_date, cost_nzd, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([
+                            $_SESSION['user_id'],
+                            $tripId,
+                            $activityName,
+                            $activityCity,
+                            trim($_POST['activity_category'] ?? ''),
+                            $activityDate,
+                            (float)($_POST['activity_cost_nzd'] ?? 0),
+                            trim($_POST['activity_description'] ?? ''),
+                        ]);
+                        $saveStatus['success'] = 'Activity added to your trip.';
+                    }
                 } else {
                     $saveStatus['error'] = 'Unable to save that item.';
                 }
