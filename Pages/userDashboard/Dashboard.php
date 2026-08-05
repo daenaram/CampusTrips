@@ -76,6 +76,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_notes'])) {
     }
 }
 
+// Handle trip deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_trip'])) {
+    $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+
+    if ($tripId && $tripId > 0) {
+        try {
+            $pdo->beginTransaction();
+
+            $deleteFlightStmt = $pdo->prepare("DELETE FROM saved_flights WHERE user_id = ? AND trip_id = ?");
+            $deleteFlightStmt->execute([$_SESSION['user_id'], $tripId]);
+
+            $deleteHotelStmt = $pdo->prepare("DELETE FROM saved_accommodations WHERE user_id = ? AND trip_id = ?");
+            $deleteHotelStmt->execute([$_SESSION['user_id'], $tripId]);
+
+            $deleteActivityStmt = $pdo->prepare("DELETE FROM saved_activities WHERE user_id = ? AND trip_id = ?");
+            $deleteActivityStmt->execute([$_SESSION['user_id'], $tripId]);
+
+            $deleteTripStmt = $pdo->prepare("DELETE FROM trips WHERE id = ? AND user_id = ?");
+            $deleteTripStmt->execute([$tripId, $_SESSION['user_id']]);
+
+            $pdo->commit();
+            $tripActionMessage = 'Trip deleted successfully.';
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit();
+        } catch (PDOException $e) {
+            $pdo->rollBack();
+            error_log('Trip deletion error: ' . $e->getMessage());
+            $errors[] = 'Unable to delete the trip right now.';
+        }
+    } else {
+        $errors[] = 'Unable to delete the trip right now.';
+    }
+}
+
+// Handle saved item deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_saved_item'])) {
+    $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+    $itemId = filter_input(INPUT_POST, 'item_id', FILTER_VALIDATE_INT);
+    $itemType = $_POST['item_type'] ?? '';
+
+    if ($tripId && $itemId && in_array($itemType, ['flight', 'hotel', 'activity'], true)) {
+        try {
+            switch ($itemType) {
+                case 'flight':
+                    $stmt = $pdo->prepare("DELETE FROM saved_flights WHERE id = ? AND user_id = ? AND trip_id = ?");
+                    break;
+                case 'hotel':
+                    $stmt = $pdo->prepare("DELETE FROM saved_accommodations WHERE id = ? AND user_id = ? AND trip_id = ?");
+                    break;
+                case 'activity':
+                    $stmt = $pdo->prepare("DELETE FROM saved_activities WHERE id = ? AND user_id = ? AND trip_id = ?");
+                    break;
+            }
+            if (isset($stmt)) {
+                $stmt->execute([$itemId, $_SESSION['user_id'], $tripId]);
+                header('Location: ' . $_SERVER['REQUEST_URI']);
+                exit();
+            }
+        } catch (PDOException $e) {
+            error_log('Item deletion error: ' . $e->getMessage());
+            $errors[] = 'Unable to remove the saved item right now.';
+        }
+    } else {
+        $errors[] = 'Unable to remove the saved item right now.';
+    }
+}
+
 $sort = $_GET['sort'] ?? 'soonest';
 
 switch ($sort) {
@@ -122,15 +189,15 @@ try {
         ];
 
         // Fetch associated flights, hotels, and attractions for each trip
-        $flightStmt = $pdo->prepare("SELECT airline, flight_number, departure_city, arrival_city, departure_airport, arrival_airport, departure_datetime, arrival_datetime, duration_minutes, stops, cabin_class, price_nzd FROM saved_flights WHERE user_id = ? AND trip_id = ? ORDER BY departure_datetime ASC");
+        $flightStmt = $pdo->prepare("SELECT id, airline, flight_number, departure_city, arrival_city, departure_airport, arrival_airport, departure_datetime, arrival_datetime, duration_minutes, stops, cabin_class, price_nzd FROM saved_flights WHERE user_id = ? AND trip_id = ? ORDER BY departure_datetime ASC");
         $flightStmt->execute([$_SESSION['user_id'], $tripId]);
         $tripDetails[$tripId]['flights'] = $flightStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $hotelStmt = $pdo->prepare("SELECT name, type, city, country, address, planned_check_in, planned_check_out, price_per_night_nzd, rating, notes FROM saved_accommodations WHERE user_id = ? AND trip_id = ? ORDER BY planned_check_in ASC, planned_check_out ASC");
+        $hotelStmt = $pdo->prepare("SELECT id, name, type, city, country, address, planned_check_in, planned_check_out, price_per_night_nzd, rating, notes FROM saved_accommodations WHERE user_id = ? AND trip_id = ? ORDER BY planned_check_in ASC, planned_check_out ASC");
         $hotelStmt->execute([$_SESSION['user_id'], $tripId]);
         $tripDetails[$tripId]['hotels'] = $hotelStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $activityStmt = $pdo->prepare("SELECT name, city, category, activity_date, cost_nzd, description, notes FROM saved_activities WHERE user_id = ? AND trip_id = ? ORDER BY activity_date ASC, name ASC");
+        $activityStmt = $pdo->prepare("SELECT id, name, city, category, activity_date, cost_nzd, description, notes FROM saved_activities WHERE user_id = ? AND trip_id = ? ORDER BY activity_date ASC, name ASC");
         $activityStmt->execute([$_SESSION['user_id'], $tripId]);
         $tripDetails[$tripId]['attractions'] = $activityStmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -361,6 +428,10 @@ try {
                     </div>
                     <div class="trip-card-actions">
                         <button type="button" class="trip-action-btn view-details-btn" data-trip-id="<?php echo $tripId; ?>">View Details</button>
+                        <form method="POST" class="trip-delete-form" onsubmit="return confirm('Delete this trip? This cannot be undone.');">
+                            <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                            <button type="submit" name="delete_trip" class="trip-action-btn delete-trip-btn">Delete Trip</button>
+                        </form>
                     </div>
                 </div>
                 <div class="trip-details-template" id="trip-details-template-<?php echo $tripId; ?>" style="display:none;">
@@ -397,6 +468,14 @@ try {
                                             <span>NZD <?php echo htmlspecialchars(number_format($flight['price_nzd'], 0)); ?></span>
                                             <span><?php echo htmlspecialchars($flight['cabin_class'] ?: 'Economy'); ?></span>
                                         </div>
+                                        <div class="saved-item-actions">
+                                            <form method="POST" onsubmit="return confirm('Remove this flight from the trip?');">
+                                                <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                                                <input type="hidden" name="item_type" value="flight">
+                                                <input type="hidden" name="item_id" value="<?php echo htmlspecialchars($flight['id']); ?>">
+                                                <button type="submit" name="delete_saved_item" class="saved-item-remove-btn">Remove</button>
+                                            </form>
+                                        </div>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
@@ -427,6 +506,14 @@ try {
                                             <span>NZD <?php echo htmlspecialchars(number_format($hotel['price_per_night_nzd'], 0)); ?> / night</span>
                                             <span><?php echo htmlspecialchars($hotel['address']); ?></span>
                                         </div>
+                                        <div class="saved-item-actions">
+                                            <form method="POST" onsubmit="return confirm('Remove this accommodation from the trip?');">
+                                                <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                                                <input type="hidden" name="item_type" value="hotel">
+                                                <input type="hidden" name="item_id" value="<?php echo htmlspecialchars($hotel['id']); ?>">
+                                                <button type="submit" name="delete_saved_item" class="saved-item-remove-btn">Remove</button>
+                                            </form>
+                                        </div>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
@@ -453,6 +540,14 @@ try {
                                             <span><strong>Cost:</strong> NZD <?php echo htmlspecialchars(number_format($attraction['cost_nzd'], 0)); ?></span>
                                         </div>
                                         <p class="saved-item-description"><?php echo htmlspecialchars($attraction['description']); ?></p>
+                                        <div class="saved-item-actions">
+                                            <form method="POST" onsubmit="return confirm('Remove this activity from the trip?');">
+                                                <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                                                <input type="hidden" name="item_type" value="activity">
+                                                <input type="hidden" name="item_id" value="<?php echo htmlspecialchars($attraction['id']); ?>">
+                                                <button type="submit" name="delete_saved_item" class="saved-item-remove-btn">Remove</button>
+                                            </form>
+                                        </div>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
