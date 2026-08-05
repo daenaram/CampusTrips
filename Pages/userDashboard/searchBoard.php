@@ -265,18 +265,52 @@ if ($searchPerformed) {
     <link rel="stylesheet" href="../../assets/css/settingsbutton.css">
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
     <link rel="stylesheet" href="../../assets/css/searchBoard.css">
+    <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css">
 </head>
 <body>
-    <div class="top-right-actions">
-        <button  class="signout-btn" onclick="location.href='Dashboard.php'">Back to Dashboard</button>
-    <button class="profile-btn" onclick="location.href='userProfile.php'">
-        <div class="mini-avatar"></div>
+
+    <!-- Hamburger menu icon (top right) -->
+    <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false" aria-controls="menuPanel">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
     </button>
 
-    <button class="signout-btn" onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">
-        Sign Out
-    </button>
-</div>
+    <div class="menu-backdrop" id="menuBackdrop"></div>
+
+    <nav class="menu-panel" id="menuPanel" aria-hidden="true">
+        <div class="menu-panel-header">
+            <?php if (isset($_SESSION['name'])): ?>
+                <p>Hi, <?php echo htmlspecialchars($_SESSION['name']); ?></p>
+            <?php else: ?>
+                <p>Menu</p>
+            <?php endif; ?>
+        </div>
+
+        <ul class="menu-list">
+            <li>
+                <button type="button" onclick="location.href='Dashboard.php'">
+                    ← Back to Dashboard
+                </button>
+            </li>
+            <li>
+                <button type="button" onclick="location.href='userProfile.php'">
+                    User Profile
+                </button>
+            </li>
+            <li>
+                <button type="button" onclick="location.href='settings.php'">
+                    Settings
+                </button>
+            </li>
+            <li>
+                <button type="button" onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">
+                    Sign Out
+                </button>
+            </li>
+        </ul>
+    </nav>
+
     <!-- Page heading for profile setup -->
     <div class="search-container-searchBoard">
         <div class="search-tabs">
@@ -751,6 +785,42 @@ if ($searchPerformed) {
     </div>
 
     <script>
+        // ---------- Hamburger menu behaviour ----------
+        const menuToggle = document.getElementById('menuToggle');
+        const menuPanel = document.getElementById('menuPanel');
+        const menuBackdrop = document.getElementById('menuBackdrop');
+
+        function openMenu() {
+            menuToggle.classList.add('open');
+            menuToggle.setAttribute('aria-expanded', 'true');
+            menuToggle.setAttribute('aria-label', 'Close menu');
+            menuPanel.classList.add('open');
+            menuPanel.setAttribute('aria-hidden', 'false');
+            menuBackdrop.classList.add('visible');
+        }
+
+        function closeMenu() {
+            menuToggle.classList.remove('open');
+            menuToggle.setAttribute('aria-expanded', 'false');
+            menuToggle.setAttribute('aria-label', 'Open menu');
+            menuPanel.classList.remove('open');
+            menuPanel.setAttribute('aria-hidden', 'true');
+            menuBackdrop.classList.remove('visible');
+        }
+
+        menuToggle.addEventListener('click', function () {
+            menuPanel.classList.contains('open') ? closeMenu() : openMenu();
+        });
+
+        menuBackdrop.addEventListener('click', closeMenu);
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeMenu();
+            }
+        });
+
+        // ---------- Existing searchBoard behaviour ----------
         function showSearchTab(tabId, clickedButton) {
             const panels = document.querySelectorAll('.search-panel');
             const buttons = document.querySelectorAll('.tab-btn');

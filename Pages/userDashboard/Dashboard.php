@@ -14,6 +14,7 @@ $errors = [];
 $showModal = false;
 $tripActionMessage = '';
 
+// Handle trip creation form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_trip'])) {
     $title = trim($_POST['title'] ?? '');
     $destination = trim($_POST['destination'] ?? '');
@@ -54,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_trip'])) {
     }
 }
 
+// Handle trip notes saving
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_notes'])) {
     $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
     $tripNotes = trim($_POST['trip_notes'] ?? '');
@@ -73,13 +75,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_notes'])) {
         $errors[] = 'Unable to save your notes right now.';
     }
 }
-
-// $trips = [];
-// $tripDetails = [];
-// try {
-//     $stmt = $pdo->prepare("SELECT id, title, destination, start_date, end_date, notes FROM trips WHERE user_id = ? ORDER BY start_date ASC");
-//     $stmt->execute([$_SESSION['user_id']]);
-//     $trips = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $sort = $_GET['sort'] ?? 'soonest';
 
@@ -104,6 +99,7 @@ switch ($sort) {
 $trips = [];
 $tripDetails = [];
 
+// Fetch trips and their associated details
 try {
 
     $stmt = $pdo->prepare("
@@ -125,6 +121,7 @@ try {
             'attractions' => []
         ];
 
+        // Fetch associated flights, hotels, and attractions for each trip
         $flightStmt = $pdo->prepare("SELECT airline, flight_number, departure_city, arrival_city, departure_airport, arrival_airport, departure_datetime, arrival_datetime, duration_minutes, stops, cabin_class, price_nzd FROM saved_flights WHERE user_id = ? AND trip_id = ? ORDER BY departure_datetime ASC");
         $flightStmt->execute([$_SESSION['user_id'], $tripId]);
         $tripDetails[$tripId]['flights'] = $flightStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -149,8 +146,46 @@ try {
     <title>User Dashboard</title>
     <link rel="stylesheet" href="../../assets/css/settingsbutton.css">
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
+    <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css">
 </head>
 <body>
+
+<!-- Hamburger menu icon (top right) -->
+<button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false" aria-controls="menuPanel">
+    <span class="bar"></span>
+    <span class="bar"></span>
+    <span class="bar"></span>
+</button>
+
+<div class="menu-backdrop" id="menuBackdrop"></div>
+
+<nav class="menu-panel" id="menuPanel" aria-hidden="true">
+    <div class="menu-panel-header">
+        <?php if (isset($_SESSION['name'])): ?>
+            <p>Hi, <?php echo htmlspecialchars($_SESSION['name']); ?></p>
+        <?php else: ?>
+            <p>Menu</p>
+        <?php endif; ?>
+    </div>
+
+    <ul class="menu-list">
+        <li>
+            <button type="button" onclick="location.href='userProfile.php'">
+                User Profile
+            </button>
+        </li>
+        <li>
+            <button type="button" onclick="location.href='settings.php'">
+                Settings
+            </button>
+        </li>
+        <li>
+            <button type="button" onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">
+                Sign Out
+            </button>
+        </li>
+    </ul>
+</nav>
 
 <div class="dashboard-hero">
     <div class="hero-overlay">    
@@ -207,21 +242,6 @@ try {
 
 </div>
 
-<!--  -->
-
-<!-- <a class="top-right-button" href="/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php">Sign Out</a>
-<p><a href="userProfile.php">View User Profile</a></p> -->
-
-<div class="top-right-actions">
-    <button class="profile-btn" onclick="location.href='userProfile.php'">
-        <div class="mini-avatar"></div>
-    </button>
-
-    <button class="signout-btn" onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">
-        Sign Out
-    </button>
-</div>
-
 <!-- Search function JS -->
  <script>
     function showSearchTab(tabId, clickedButton) {
@@ -257,16 +277,6 @@ try {
             <h2>Your Saved Trips</h2>
             <p>View and manage your saved trips here.</p>
         </div>
-        
-        <!-- <div class="sort-container">
-                <label for="sortTrips">Sort by:</label>
-                <select id="sortTrips">
-                    <option value="newest">Date Created (Newest)</option>
-                    <option value="oldest">Date Created (Oldest)</option>
-                    <option value="soonest">Trip Coming Soon</option>
-                    <option value="latest">Trip Furthest Away</option>
-                </select>    
-        </div> -->
 
         <form method="GET" class="sort-container">
 
@@ -473,9 +483,6 @@ try {
                         <?php endif; ?>
                     </div>
 
-                    
-
-
                     <div class="trip-details-section">
                         <h5>Notes</h5>
                         <form method="POST" class="trip-notes-form">
@@ -548,6 +555,42 @@ try {
 </div>
 
 <script>
+    // ---------- Hamburger menu behaviour ----------
+    const menuToggle = document.getElementById('menuToggle');
+    const menuPanel = document.getElementById('menuPanel');
+    const menuBackdrop = document.getElementById('menuBackdrop');
+
+    function openMenu() {
+        menuToggle.classList.add('open');
+        menuToggle.setAttribute('aria-expanded', 'true');
+        menuToggle.setAttribute('aria-label', 'Close menu');
+        menuPanel.classList.add('open');
+        menuPanel.setAttribute('aria-hidden', 'false');
+        menuBackdrop.classList.add('visible');
+    }
+
+    function closeMenu() {
+        menuToggle.classList.remove('open');
+        menuToggle.setAttribute('aria-expanded', 'false');
+        menuToggle.setAttribute('aria-label', 'Open menu');
+        menuPanel.classList.remove('open');
+        menuPanel.setAttribute('aria-hidden', 'true');
+        menuBackdrop.classList.remove('visible');
+    }
+
+    menuToggle.addEventListener('click', function () {
+        menuPanel.classList.contains('open') ? closeMenu() : openMenu();
+    });
+
+    menuBackdrop.addEventListener('click', closeMenu);
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            closeMenu();
+        }
+    });
+
+    // --------- Trip modal behaviour ----------
     const tripModal = document.getElementById('trip-modal');
     const openTripModal = document.getElementById('open-trip-modal');
     const closeTripModal = document.getElementById('close-trip-modal');
