@@ -25,12 +25,7 @@ if (!isset($_SESSION['user_id'])) {
 <link rel="stylesheet" href="../../assets/css/settingsbutton.css">
 
 <style>
-    /*
-     * Basic settings page styling.
-     * The hamburger menu itself is controlled by hamburgerMenu.css.
-     */
-
-    * {
+    {
         box-sizing: border-box;
     }
 
@@ -194,6 +189,12 @@ if (!isset($_SESSION['user_id'])) {
 
     <ul class="menu-list">
 
+        <li>
+            <button type="button" onclick="location.href='Dashboard.php'">
+                ← Back to Dashboard
+            </button>
+        </li>
+
         <!-- User Profile -->
         <li>
             <button
@@ -234,9 +235,7 @@ if (!isset($_SESSION['user_id'])) {
 </nav>
 
 
-<!-- =========================================================
-     SETTINGS PAGE CONTENT
-     ========================================================= -->
+<!-- SETTINGS PAGE CONTENT -->
 
 <main class="settings-page">
 
