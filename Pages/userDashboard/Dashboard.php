@@ -247,7 +247,7 @@ try {
     }
  </script>
  
-<!--  -->
+<!-- Saved trips -->
 
  <div class="savedTrips">
     
