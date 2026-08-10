@@ -212,7 +212,7 @@ try {
     }
  </script>
  
-<!--  -->
+<!-- Saved Trips -->
 
  <div class="savedTrips">
     
@@ -235,6 +235,7 @@ try {
         
     </div>
 
+        <!--Creating New Trip Card -->
     <div class="trip-grid">
         <div class="trip-card new-trip-card">
             <a href="#" id="open-trip-modal" class="new-trip-link">
