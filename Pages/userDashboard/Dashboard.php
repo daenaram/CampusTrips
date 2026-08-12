@@ -644,6 +644,7 @@ try {
 
 <!--Upcoming Trips-->
 <?php include 'upcomingTrip.php'; ?>
+ 
 <!-- Completed Trips -->
  <?php include 'completedTrip.php'; ?>
 
@@ -783,6 +784,8 @@ try {
             hideTripDetailsModal();
         }
     });
+
+    
 
     <?php if ($showModal): ?>
         window.addEventListener('DOMContentLoaded', showTripModal);
