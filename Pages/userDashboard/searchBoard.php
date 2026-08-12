@@ -461,7 +461,7 @@ if ($searchPerformed) {
                         data-activity-name="<?php echo htmlspecialchars($activity['activity_name']); ?>"
                         data-activity-city="<?php echo htmlspecialchars($activity['city']); ?>"
                         data-activity-category="<?php echo htmlspecialchars($activity['category']); ?>"
-                        data-activity-date-value="<?php echo htmlspecialchars($activity['activity_date']); ?>"
+                        data-activity-date-value="<?php echo htmlspecialchars($activity['raw_activity_date'] ?? $activity['activity_date']); ?>"
                         data-activity-cost-nzd="<?php echo htmlspecialchars($activity['cost_nzd']); ?>"
                         data-activity-description="<?php echo htmlspecialchars($activity['description']); ?>"
                     >
