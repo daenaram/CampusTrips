@@ -429,7 +429,10 @@ try {
                         <strong>Trip Duration</strong>
                         <span><?php echo $duration; ?></span>
                     </div>
-                    <div class="trip-card-actions">
+                    
+                    <!--Added style to separate the two buttons-->
+                    <div class="trip-card-actions"
+                    style="display:flex; justify-content: space-between; align-items: center; margin-top: 15px;">
                         <button type="button" class="trip-action-btn view-details-btn" data-trip-id="<?php echo $tripId; ?>">View Details</button>
                         <form method="POST" class="trip-delete-form" onsubmit="return confirm('Delete this trip? This cannot be undone.');">
                             <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">

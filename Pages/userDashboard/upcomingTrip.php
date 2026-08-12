@@ -96,10 +96,6 @@ if (!empty($trips) && is_array($trips)) {
                     <div class="trip-card-actions"
                         style="display:flex; justify-content: space-between; align-items: center; margin-top: 15px;">
                         <button type="button" class="trip-action-btn edit-trip-btn" data-trip-id="<?php echo $tripId; ?>"
-                            data-title="<?php echo htmlspecialchars($tripName); ?>"
-                            data-destination="<?php echo htmlspecialchars($destination); ?>"
-                            data-start="<?php echo htmlspecialchars($trip['start_date']); ?>"
-                            data-end="<?php echo htmlspecialchars($trip['end_date']); ?>"
                             style="padding: 8px 16px; background: #107c22; color: white; border: none; border-radius: 999px;">Edit
                             Trip</button>
                         <button type="button" class="trip-action-btn view-details-btn" data-trip-id="<?php echo $tripId; ?>"
