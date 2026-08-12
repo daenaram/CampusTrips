@@ -43,6 +43,29 @@
     transform: rotate(-45deg);
 }
 
+/* Back to Dashboard button positioned top-left */
+.back-to-dashboard {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    height: auto;
+    background: transparent;
+    color: #0B2545;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 60;
+    transition: transform 0.12s ease;
+}
+.back-to-dashboard:hover {
+    transform: scale(1.05);
+    /* keep color same, only enlarge text */
+}
+
 .menu-backdrop {
     position: fixed;
     inset: 0;

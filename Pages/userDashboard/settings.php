@@ -146,6 +146,9 @@ if (!isset($_SESSION['user_id'])) {
 
 <body>
 <!-- Hamburger menu icon -->
+<!-- Back to dashboard (top left) -->
+<button type="button" class="back-to-dashboard" onclick="location.href='Dashboard.php'" aria-label="Back to dashboard">← Back to Dashboard</button>
+
 <button
     class="menu-toggle"
     id="menuToggle"
@@ -189,11 +192,7 @@ if (!isset($_SESSION['user_id'])) {
 
     <ul class="menu-list">
 
-        <li>
-            <button type="button" onclick="location.href='Dashboard.php'">
-                ← Back to Dashboard
-            </button>
-        </li>
+        <!-- Back to Dashboard moved to top-left for quick access -->
 
         <!-- User Profile -->
         <li>

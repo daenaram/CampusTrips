@@ -269,6 +269,9 @@ if ($searchPerformed) {
 </head>
 <body>
 
+    <!-- Back to dashboard (top left) -->
+    <button type="button" class="back-to-dashboard" onclick="location.href='Dashboard.php'" aria-label="Back to dashboard">← Back to Dashboard</button>
+
     <!-- Hamburger menu icon (top right) -->
     <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false" aria-controls="menuPanel">
         <span class="bar"></span>
@@ -288,11 +291,7 @@ if ($searchPerformed) {
         </div>
 
         <ul class="menu-list">
-            <li>
-                <button type="button" onclick="location.href='Dashboard.php'">
-                    ← Back to Dashboard
-                </button>
-            </li>
+            <!-- Back to Dashboard moved to top-left for quick access -->
             <li>
                 <button type="button" onclick="location.href='userProfile.php'">
                     User Profile
@@ -820,7 +819,6 @@ if ($searchPerformed) {
             }
         });
 
-        // ---------- Existing searchBoard behaviour ----------
         function showSearchTab(tabId, clickedButton) {
             const panels = document.querySelectorAll('.search-panel');
             const buttons = document.querySelectorAll('.tab-btn');
