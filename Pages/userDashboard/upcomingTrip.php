@@ -94,7 +94,7 @@ if (!empty($trips) && is_array($trips)) {
                         <!-- Reusing the view-details-btn hooks right into your existing JS -->
                         <div class="trip-card-actions" style="display:flex; justify-content: space-between; align-items: center; margin-top: 15px;">
                             <button type="button" class="trip-action-btn edit-trip-btn" data-trip-id="<?php echo $tripId; ?>" style="padding: 8px 16px; background: #107c22; color: white; border: none; border-radius: 999px;">Edit Trip</button>
-                            <button type="button" class="trip-action-btn view-details-btn" data-trip-id="<?php echo $tripId; ?>" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 999px;">View Details</button>
+                            <button type="button" class="trip-action-btn view-details-btn" data-trip-id="<?php echo $tripId; ?>" style="padding: 8px 16px; background: #0078d4; color: white; border: none; border-radius: 999px;">View Details</button>
                         </div>
                         
                 </div>
