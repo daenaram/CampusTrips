@@ -1,0 +1,132 @@
+/* ---------- Hamburger menu ----------
+   Shared by Dashboard.php and searchBoard.php (and any other page
+   that includes the matching .menu-toggle / .menu-backdrop / .menu-panel markup). */
+
+.menu-toggle {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    width: 42px;
+    height: 42px;
+    background: #0B2545;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    z-index: 60;
+}
+.menu-toggle:hover {
+    opacity: 0.9;
+}
+.menu-toggle .bar {
+    display: block;
+    position: absolute;
+    left: 10px;
+    width: 22px;
+    height: 2px;
+    background: #F5F3EE;
+    border-radius: 2px;
+    transition: transform 0.25s ease, opacity 0.25s ease, top 0.25s ease;
+}
+.menu-toggle .bar:nth-child(1) { top: 14px; }
+.menu-toggle .bar:nth-child(2) { top: 20px; }
+.menu-toggle .bar:nth-child(3) { top: 26px; }
+
+.menu-toggle.open .bar:nth-child(1) {
+    top: 20px;
+    transform: rotate(45deg);
+}
+.menu-toggle.open .bar:nth-child(2) {
+    opacity: 0;
+}
+.menu-toggle.open .bar:nth-child(3) {
+    top: 20px;
+    transform: rotate(-45deg);
+}
+
+/* Back to Dashboard button positioned top-left */
+.back-to-dashboard {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    height: auto;
+    background: transparent;
+    color: #0B2545;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 60;
+    transition: transform 0.12s ease;
+}
+.back-to-dashboard:hover {
+    transform: scale(1.05);
+    /* keep color same, only enlarge text */
+}
+
+.menu-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(11, 37, 69, 0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 55;
+}
+.menu-backdrop.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.menu-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 260px;
+    background: #0B2545;
+    z-index: 58;
+    transform: translateX(100%);
+    transition: transform 0.3s ease-out;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.25);
+}
+.menu-panel.open {
+    transform: translateX(0);
+}
+.menu-panel-header {
+    padding: 24px 20px 16px;
+    border-bottom: 1px dashed rgba(245, 243, 238, 0.25);
+}
+.menu-panel-header p {
+    margin: 0;
+    color: #F5F3EE;
+    font-size: 15px;
+    font-weight: 600;
+}
+.menu-list {
+    list-style: none;
+    margin: 0;
+    padding: 8px 0;
+    flex: 1;
+}
+.menu-list button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    background: none;
+    border: none;
+    border-left: 2px solid transparent;
+    color: rgba(245, 243, 238, 0.85);
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+}
+.menu-list button:hover {
+    background: rgba(245, 243, 238, 0.06);
+}

@@ -249,16 +249,39 @@ body {
     margin-top: 0.75rem;
     display: flex;
     justify-content: flex-end;
+    gap: 0.5rem;
 }
 
 .trip-action-btn {
     border: none;
     border-radius: 999px;
-    padding: 0.6rem 1rem;
+    padding: 0.45rem 0.85rem;
     background: #0078d4;
     color: white;
     cursor: pointer;
     font-weight: 600;
+    font-size: 0.88rem;
+}
+
+.saved-item-actions {
+    margin-top: 0.6rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.saved-item-remove-btn {
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    padding: 0.45rem 0.85rem;
+    background: #fff;
+    color: #b91c1c;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.saved-item-remove-btn:hover {
+    background: #fee2e2;
 }
 
 .trip-details-template {

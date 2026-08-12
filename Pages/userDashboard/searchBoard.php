@@ -130,61 +130,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_item'])) {
         } else {
             try {
                 if ($itemType === 'flight') {
-                    $stmt = $pdo->prepare("INSERT INTO saved_flights (user_id, trip_id, airline, flight_number, departure_city, arrival_city, departure_airport, arrival_airport, departure_datetime, arrival_datetime, duration_minutes, stops, cabin_class, price_nzd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([
-                        $_SESSION['user_id'],
-                        $tripId,
-                        trim($_POST['airline_value'] ?? $_POST['airline'] ?? ''),
-                        trim($_POST['flight_number'] ?? ''),
-                        trim($_POST['departure_city'] ?? ''),
-                        trim($_POST['arrival_city'] ?? ''),
-                        trim($_POST['departure_airport'] ?? ''),
-                        trim($_POST['arrival_airport'] ?? ''),
-                        trim($_POST['departure_datetime'] ?? ''),
-                        trim($_POST['arrival_datetime'] ?? ''),
-                        (int)($_POST['duration_minutes'] ?? 0),
-                        (int)($_POST['stops'] ?? 0),
-                        trim($_POST['cabin_class'] ?? 'Economy'),
-                        (float)($_POST['price_nzd'] ?? 0),
-                    ]);
-                    $saveStatus['success'] = 'Flight added to your trip.';
+                    $airlineValue = trim($_POST['airline_value'] ?? $_POST['airline'] ?? '');
+                    $flightNumber = trim($_POST['flight_number'] ?? '');
+                    $departureDatetime = trim($_POST['departure_datetime'] ?? '');
+
+                    // --- Duplicate check: same airline + flight number + departure time already saved to this trip ---
+                    $dupFlightStmt = $pdo->prepare("SELECT id FROM saved_flights WHERE user_id = ? AND trip_id = ? AND airline = ? AND flight_number = ? AND departure_datetime = ?");
+                    $dupFlightStmt->execute([$_SESSION['user_id'], $tripId, $airlineValue, $flightNumber, $departureDatetime]);
+
+                    if ($dupFlightStmt->fetch()) {
+                        $saveStatus['error'] = 'This flight has already been added to this trip.';
+                    } else {
+                        $stmt = $pdo->prepare("INSERT INTO saved_flights (user_id, trip_id, airline, flight_number, departure_city, arrival_city, departure_airport, arrival_airport, departure_datetime, arrival_datetime, duration_minutes, stops, cabin_class, price_nzd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([
+                            $_SESSION['user_id'],
+                            $tripId,
+                            $airlineValue,
+                            $flightNumber,
+                            trim($_POST['departure_city'] ?? ''),
+                            trim($_POST['arrival_city'] ?? ''),
+                            trim($_POST['departure_airport'] ?? ''),
+                            trim($_POST['arrival_airport'] ?? ''),
+                            $departureDatetime,
+                            trim($_POST['arrival_datetime'] ?? ''),
+                            (int)($_POST['duration_minutes'] ?? 0),
+                            (int)($_POST['stops'] ?? 0),
+                            trim($_POST['cabin_class'] ?? 'Economy'),
+                            (float)($_POST['price_nzd'] ?? 0),
+                        ]);
+                        $saveStatus['success'] = 'Flight added to your trip.';
+                    }
                 } elseif ($itemType === 'accommodation') {
+                    $accommodationName = trim($_POST['accommodation_name'] ?? '');
                     $plannedCheckIn = trim($_POST['planned_check_in'] ?? '');
                     $plannedCheckOut = trim($_POST['planned_check_out'] ?? '');
                     $plannedCheckIn = $plannedCheckIn !== '' ? $plannedCheckIn : null;
                     $plannedCheckOut = $plannedCheckOut !== '' ? $plannedCheckOut : null;
 
-                    $stmt = $pdo->prepare("INSERT INTO saved_accommodations (user_id, trip_id, name, type, city, country, address, planned_check_in, planned_check_out, check_in_time, check_out_time, price_per_night_nzd, rating, amenities) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([
-                        $_SESSION['user_id'],
-                        $tripId,
-                        trim($_POST['accommodation_name'] ?? ''),
-                        trim($_POST['accommodation_type'] ?? ''),
-                        trim($_POST['accommodation_city'] ?? ''),
-                        trim($_POST['accommodation_country'] ?? ''),
-                        trim($_POST['accommodation_address'] ?? ''),
-                        $plannedCheckIn,
-                        $plannedCheckOut,
-                        trim($_POST['check_in_time'] ?? '14:00:00'),
-                        trim($_POST['check_out_time'] ?? '11:00:00'),
-                        (float)($_POST['price_per_night_nzd'] ?? 0),
-                        (float)($_POST['rating'] ?? 0),
-                        trim($_POST['amenities'] ?? ''),
-                    ]);
-                    $saveStatus['success'] = 'Accommodation added to your trip.';
+                    // --- Duplicate check: same accommodation name + check-in/check-out already saved to this trip ---
+                    $dupHotelStmt = $pdo->prepare("SELECT id FROM saved_accommodations WHERE user_id = ? AND trip_id = ? AND name = ? AND planned_check_in <=> ? AND planned_check_out <=> ?");
+                    $dupHotelStmt->execute([$_SESSION['user_id'], $tripId, $accommodationName, $plannedCheckIn, $plannedCheckOut]);
+
+                    if ($dupHotelStmt->fetch()) {
+                        $saveStatus['error'] = 'This accommodation has already been added to this trip.';
+                    } else {
+                        $stmt = $pdo->prepare("INSERT INTO saved_accommodations (user_id, trip_id, name, type, city, country, address, planned_check_in, planned_check_out, check_in_time, check_out_time, price_per_night_nzd, rating, amenities) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([
+                            $_SESSION['user_id'],
+                            $tripId,
+                            $accommodationName,
+                            trim($_POST['accommodation_type'] ?? ''),
+                            trim($_POST['accommodation_city'] ?? ''),
+                            trim($_POST['accommodation_country'] ?? ''),
+                            trim($_POST['accommodation_address'] ?? ''),
+                            $plannedCheckIn,
+                            $plannedCheckOut,
+                            trim($_POST['check_in_time'] ?? '14:00:00'),
+                            trim($_POST['check_out_time'] ?? '11:00:00'),
+                            (float)($_POST['price_per_night_nzd'] ?? 0),
+                            (float)($_POST['rating'] ?? 0),
+                            trim($_POST['amenities'] ?? ''),
+                        ]);
+                        $saveStatus['success'] = 'Accommodation added to your trip.';
+                    }
                 } elseif ($itemType === 'activity') {
-                    $stmt = $pdo->prepare("INSERT INTO saved_activities (user_id, trip_id, name, city, category, activity_date, cost_nzd, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([
-                        $_SESSION['user_id'],
-                        $tripId,
-                        trim($_POST['activity_name'] ?? ''),
-                        trim($_POST['activity_city'] ?? ''),
-                        trim($_POST['activity_category'] ?? ''),
-                        trim($_POST['activity_date_value'] ?? $_POST['activity_date'] ?? ''),
-                        (float)($_POST['activity_cost_nzd'] ?? 0),
-                        trim($_POST['activity_description'] ?? ''),
-                    ]);
-                    $saveStatus['success'] = 'Activity added to your trip.';
+                    $activityName = trim($_POST['activity_name'] ?? '');
+                    $activityCity = trim($_POST['activity_city'] ?? '');
+                    $activityDate = trim($_POST['activity_date_value'] ?? $_POST['activity_date'] ?? '');
+
+                    // --- Duplicate check: same activity name + city + date already saved to this trip ---
+                    $dupActivityStmt = $pdo->prepare("SELECT id FROM saved_activities WHERE user_id = ? AND trip_id = ? AND name = ? AND city = ? AND activity_date = ?");
+                    $dupActivityStmt->execute([$_SESSION['user_id'], $tripId, $activityName, $activityCity, $activityDate]);
+
+                    if ($dupActivityStmt->fetch()) {
+                        $saveStatus['error'] = 'This activity has already been added to this trip.';
+                    } else {
+                        $stmt = $pdo->prepare("INSERT INTO saved_activities (user_id, trip_id, name, city, category, activity_date, cost_nzd, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([
+                            $_SESSION['user_id'],
+                            $tripId,
+                            $activityName,
+                            $activityCity,
+                            trim($_POST['activity_category'] ?? ''),
+                            $activityDate,
+                            (float)($_POST['activity_cost_nzd'] ?? 0),
+                            trim($_POST['activity_description'] ?? ''),
+                        ]);
+                        $saveStatus['success'] = 'Activity added to your trip.';
+                    }
                 } else {
                     $saveStatus['error'] = 'Unable to save that item.';
                 }
@@ -232,18 +265,51 @@ if ($searchPerformed) {
     <link rel="stylesheet" href="../../assets/css/settingsbutton.css">
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
     <link rel="stylesheet" href="../../assets/css/searchBoard.css">
+    <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css">
 </head>
 <body>
-    <div class="top-right-actions">
-        <button  class="signout-btn" onclick="location.href='Dashboard.php'">Back to Dashboard</button>
-    <button class="profile-btn" onclick="location.href='userProfile.php'">
-        <div class="mini-avatar"></div>
+
+    <!-- Back to dashboard (top left) -->
+    <button type="button" class="back-to-dashboard" onclick="location.href='Dashboard.php'" aria-label="Back to dashboard">← Back to Dashboard</button>
+
+    <!-- Hamburger menu icon (top right) -->
+    <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false" aria-controls="menuPanel">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
     </button>
 
-    <button class="signout-btn" onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">
-        Sign Out
-    </button>
-</div>
+    <div class="menu-backdrop" id="menuBackdrop"></div>
+
+    <nav class="menu-panel" id="menuPanel" aria-hidden="true">
+        <div class="menu-panel-header">
+            <?php if (isset($_SESSION['name'])): ?>
+                <p>Hi, <?php echo htmlspecialchars($_SESSION['name']); ?></p>
+            <?php else: ?>
+                <p>Menu</p>
+            <?php endif; ?>
+        </div>
+
+        <ul class="menu-list">
+            <!-- Back to Dashboard moved to top-left for quick access -->
+            <li>
+                <button type="button" onclick="location.href='userProfile.php'">
+                    User Profile
+                </button>
+            </li>
+            <li>
+                <button type="button" onclick="location.href='settings.php'">
+                    Settings
+                </button>
+            </li>
+            <li>
+                <button type="button" onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">
+                    Sign Out
+                </button>
+            </li>
+        </ul>
+    </nav>
+
     <!-- Page heading for profile setup -->
     <div class="search-container-searchBoard">
         <div class="search-tabs">
@@ -395,7 +461,7 @@ if ($searchPerformed) {
                         data-activity-name="<?php echo htmlspecialchars($activity['activity_name']); ?>"
                         data-activity-city="<?php echo htmlspecialchars($activity['city']); ?>"
                         data-activity-category="<?php echo htmlspecialchars($activity['category']); ?>"
-                        data-activity-date-value="<?php echo htmlspecialchars($activity['activity_date']); ?>"
+                        data-activity-date-value="<?php echo htmlspecialchars($activity['raw_activity_date'] ?? $activity['activity_date']); ?>"
                         data-activity-cost-nzd="<?php echo htmlspecialchars($activity['cost_nzd']); ?>"
                         data-activity-description="<?php echo htmlspecialchars($activity['description']); ?>"
                     >
@@ -718,6 +784,41 @@ if ($searchPerformed) {
     </div>
 
     <script>
+        // ---------- Hamburger menu behaviour ----------
+        const menuToggle = document.getElementById('menuToggle');
+        const menuPanel = document.getElementById('menuPanel');
+        const menuBackdrop = document.getElementById('menuBackdrop');
+
+        function openMenu() {
+            menuToggle.classList.add('open');
+            menuToggle.setAttribute('aria-expanded', 'true');
+            menuToggle.setAttribute('aria-label', 'Close menu');
+            menuPanel.classList.add('open');
+            menuPanel.setAttribute('aria-hidden', 'false');
+            menuBackdrop.classList.add('visible');
+        }
+
+        function closeMenu() {
+            menuToggle.classList.remove('open');
+            menuToggle.setAttribute('aria-expanded', 'false');
+            menuToggle.setAttribute('aria-label', 'Open menu');
+            menuPanel.classList.remove('open');
+            menuPanel.setAttribute('aria-hidden', 'true');
+            menuBackdrop.classList.remove('visible');
+        }
+
+        menuToggle.addEventListener('click', function () {
+            menuPanel.classList.contains('open') ? closeMenu() : openMenu();
+        });
+
+        menuBackdrop.addEventListener('click', closeMenu);
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeMenu();
+            }
+        });
+
         function showSearchTab(tabId, clickedButton) {
             const panels = document.querySelectorAll('.search-panel');
             const buttons = document.querySelectorAll('.tab-btn');

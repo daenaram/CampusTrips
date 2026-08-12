@@ -6,7 +6,7 @@ function searchActivities(PDO $pdo, array $data): array {
     $category = trim($data['category'] ?? '');
     $activityDate = trim($data['activity_date'] ?? '');
 
-    $query = 'SELECT *, DATE_FORMAT(activity_date, "%d %M %Y") AS activity_date FROM activities';
+    $query = 'SELECT *, activity_date AS raw_activity_date, DATE_FORMAT(activity_date, "%d %M %Y") AS activity_date FROM activities';
     $conditions = [];
     $params = [];
 
