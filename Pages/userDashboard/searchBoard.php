@@ -302,6 +302,11 @@ if ($searchPerformed) {
                     Settings
                 </button>
             </li>
+                    <li>
+            <button type="button" onclick="location.href='helpDesk.php'">
+                Contact us
+            </button>
+        </li>
             <li>
                 <button type="button" onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">
                     Sign Out
