@@ -214,6 +214,9 @@ try {
     <link rel="stylesheet" href="../../assets/css/settingsbutton.css">
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
     <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css">
+    <link rel="stylesheet" href="../../assets/css/calendar.css">
+    <style>
+    </style>
 </head>
 <body>
 
@@ -661,6 +664,44 @@ try {
     </div>
 </div>
 
+<!-- Floating Calendar Button -->
+<button id="floating-calendar-btn" class="floating-calendar-btn" title="Open Calendar" aria-label="Open trip calendar">📅</button>
+
+<!-- Calendar Modal -->
+<div id="calendar-modal-backdrop" class="calendar-modal-backdrop">
+    <div class="calendar-modal">
+        <div class="calendar-modal-header">
+            <h2>Trip Calendar</h2>
+            <button id="calendar-close-btn" class="calendar-close-btn" type="button">×</button>
+        </div>
+        
+        <div class="calendar-controls">
+            <button class="calendar-nav-btn" id="prev-month">← Prev</button>
+            <div class="calendar-month-year" id="calendar-month-year"></div>
+            <button class="calendar-nav-btn" id="next-month">Next →</button>
+        </div>
+
+        <div class="calendar-weekdays">
+            <div class="calendar-weekday">Sun</div>
+            <div class="calendar-weekday">Mon</div>
+            <div class="calendar-weekday">Tue</div>
+            <div class="calendar-weekday">Wed</div>
+            <div class="calendar-weekday">Thu</div>
+            <div class="calendar-weekday">Fri</div>
+            <div class="calendar-weekday">Sat</div>
+        </div>
+
+        <div class="calendar-days" id="calendar-days"></div>
+
+        <div class="calendar-trips-list" id="calendar-trips-list"></div>
+    </div>
+</div>
+
+<!-- Trips data for calendar (as JSON) -->
+<script>
+    const tripsData = <?php echo json_encode($trips); ?>;
+</script>
+
 <script>
     // ---------- Hamburger menu behaviour ----------
     const menuToggle = document.getElementById('menuToggle');
@@ -788,11 +829,11 @@ try {
         }
     });
 
-    
-
     <?php if ($showModal): ?>
         window.addEventListener('DOMContentLoaded', showTripModal);
     <?php endif; ?>
 </script>
+
+<script src="../../assets/js/calendar.js"></script>
 </body>
 </html>
