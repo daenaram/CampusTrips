@@ -38,32 +38,32 @@ try {
 }
 
 // Determine which search type is being performed (flights, accommodation, or activities)
-$searchType = $_POST['search_type'] ?? 'flights';
+$searchType = $_POST['search_type'] ?? $_SESSION['last_search_type'] ?? 'flights';
 $activeTab = in_array($searchType, ['accommodation', 'activities'], true) ? $searchType : 'flights';
-$searchPerformed = $_SERVER['REQUEST_METHOD'] === 'POST';
+$searchPerformed = $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['save_trip_item']);
 
-// Initialize search parameters with empty values
+// Initialize search parameters with empty values or from session
 $flightSearch = [
-    'departure_city' => '',
-    'arrival_city' => '',
-    'airline' => '',
-    'departure_date' => '',
-    'return_date' => '',
+    'departure_city' => $_SESSION['last_flight_search']['departure_city'] ?? '',
+    'arrival_city' => $_SESSION['last_flight_search']['arrival_city'] ?? '',
+    'airline' => $_SESSION['last_flight_search']['airline'] ?? '',
+    'departure_date' => $_SESSION['last_flight_search']['departure_date'] ?? '',
+    'return_date' => $_SESSION['last_flight_search']['return_date'] ?? '',
 ];
 
 // Accommodation search parameters
 $hotelSearch = [
-    'accommodation_name' => '',
-    'accommodation_type' => '',
-    'accommodation_city' => '',
+    'accommodation_name' => $_SESSION['last_hotel_search']['accommodation_name'] ?? '',
+    'accommodation_type' => $_SESSION['last_hotel_search']['accommodation_type'] ?? '',
+    'accommodation_city' => $_SESSION['last_hotel_search']['accommodation_city'] ?? '',
 ];
 
 // Activity search parameters
 $activitySearch = [
-    'keyword' => '',
-    'city' => '',
-    'category' => '',
-    'activity_date' => '',
+    'keyword' => $_SESSION['last_activity_search']['keyword'] ?? '',
+    'city' => $_SESSION['last_activity_search']['city'] ?? '',
+    'category' => $_SESSION['last_activity_search']['category'] ?? '',
+    'activity_date' => $_SESSION['last_activity_search']['activity_date'] ?? '',
 ];
 
 $flights = [];
@@ -230,24 +230,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_item'])) {
 }
 
 // Perform the appropriate search based on the submitted form data
-if ($searchPerformed) {
+// Don't search if this is a trip save operation (drag-drop or button click)
+if ($searchPerformed && !isset($_POST['save_trip_item'])) {
     if ($searchType === 'accommodation') {
         $hotelSearch['accommodation_name'] = trim($_POST['accommodation_name'] ?? '');
         $hotelSearch['accommodation_type'] = trim($_POST['accommodation_type'] ?? '');
         $hotelSearch['accommodation_city'] = trim($_POST['accommodation_city'] ?? '');
         $accommodations = searchAccommodations($pdo, $hotelSearch);
+        // Store search for restoration after save
+        $_SESSION['last_search_type'] = 'accommodation';
+        $_SESSION['last_hotel_search'] = $hotelSearch;
     } elseif ($searchType === 'activities') {
         $activitySearch['keyword'] = trim($_POST['keyword'] ?? '');
         $activitySearch['city'] = trim($_POST['city'] ?? '');
         $activitySearch['category'] = trim($_POST['category'] ?? '');
         $activitySearch['activity_date'] = trim($_POST['activity_date'] ?? '');
         $activities = searchActivities($pdo, $activitySearch);
+        // Store search for restoration after save
+        $_SESSION['last_search_type'] = 'activities';
+        $_SESSION['last_activity_search'] = $activitySearch;
     } else {
         $flightSearch['departure_city'] = trim($_POST['departure_city'] ?? '');
         $flightSearch['arrival_city'] = trim($_POST['arrival_city'] ?? '');
         $flightSearch['airline'] = trim($_POST['airline'] ?? '');
         $flightSearch['departure_date'] = trim($_POST['departure_date'] ?? '');
         $flightSearch['return_date'] = trim($_POST['return_date'] ?? '');
+        $flights = searchFlights($pdo, $flightSearch);
+        // Store search for restoration after save
+        $_SESSION['last_search_type'] = 'flights';
+        $_SESSION['last_flight_search'] = $flightSearch;
+    }
+} else if (isset($_POST['save_trip_item']) && isset($_SESSION['last_search_type'])) {
+    // Restore previous search results after saving an item
+    $searchType = $_SESSION['last_search_type'];
+    $activeTab = in_array($searchType, ['accommodation', 'activities'], true) ? $searchType : 'flights';
+    
+    if ($searchType === 'accommodation' && isset($_SESSION['last_hotel_search'])) {
+        $hotelSearch = $_SESSION['last_hotel_search'];
+        $accommodations = searchAccommodations($pdo, $hotelSearch);
+    } elseif ($searchType === 'activities' && isset($_SESSION['last_activity_search'])) {
+        $activitySearch = $_SESSION['last_activity_search'];
+        $activities = searchActivities($pdo, $activitySearch);
+    } elseif (isset($_SESSION['last_flight_search'])) {
+        $flightSearch = $_SESSION['last_flight_search'];
         $flights = searchFlights($pdo, $flightSearch);
     }
 } else {
