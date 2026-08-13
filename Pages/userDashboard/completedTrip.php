@@ -14,7 +14,7 @@ if (!empty($trips) && is_array($trips)) {
 }
 ?>
 
-<div class="savedTrips" style="margin-top: 40px;">
+<div class="savedTrips">
 
     <div class="savedTrips-header">
         <div class="savedTrips-title">

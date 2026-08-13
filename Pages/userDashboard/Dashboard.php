@@ -653,9 +653,7 @@ try {
 
 </div>
 
-<!--Upcoming Trips-->
-<?php include 'upcomingTrip.php'; ?>
- 
+
 <!-- Completed Trips -->
  <?php include 'completedTrip.php'; ?>
 
