@@ -27,15 +27,13 @@ function hasConflict($start1, $end1, $start2, $end2)
     return ($s1 < $e2) && ($e1 > $s2);
 }
 
-/**
- * Scans a trip's items and returns an array of conflict descriptions
- */
+
 function getTripConflicts($flights, $hotels, $activities)
 {
     $conflicts = [];
     $timeline = [];
 
-    // 1. Process Flights
+   //flight
     foreach ($flights as $f) {
         if (!empty($f['departure_datetime']) && !empty($f['arrival_datetime'])) {
             $timeline[] = [
@@ -46,7 +44,7 @@ function getTripConflicts($flights, $hotels, $activities)
         }
     }
 
-    // 2. Process Hotels
+    //  Hotels
     foreach ($hotels as $h) {
         if (!empty($h['planned_check_in']) && !empty($h['planned_check_out'])) {
             $timeline[] = [
@@ -57,7 +55,7 @@ function getTripConflicts($flights, $hotels, $activities)
         }
     }
 
-    // 3. Process Activities
+    // Activities
     foreach ($activities as $a) {
         // Only add if date is not '0000-00-00' or NULL
         if (!empty($a['activity_date']) && $a['activity_date'] !== '0000-00-00') {
@@ -69,7 +67,7 @@ function getTripConflicts($flights, $hotels, $activities)
         }
     }
 
-    // 4. Cross-reference
+    // reference
     $count = count($timeline);
     for ($i = 0; $i < $count; $i++) {
         for ($j = $i + 1; $j < $count; $j++) {

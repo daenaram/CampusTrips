@@ -898,10 +898,20 @@ try {
         }
     });
 
-    <?php if ($showModal): ?>
+    <?php if ($showModal && !isset($conflictingTripId)): ?>
         window.addEventListener('DOMContentLoaded', showTripModal);
     <?php endif; ?>
 
 </script>
+    <!-- Conflict detection js -->
+    <script>
+        window.TRIP_CONFLICT_DATA = {
+            hasConflict: <?php echo isset($conflictingTripId) ? 'true' : 'false'; ?>,
+            conflictId: <?php echo isset($conflictingTripId) ? $conflictingTripId : 'null'; ?>,
+                showModal: <?php echo $showModal ? 'true' : 'false'; ?>
+            };
+    </script>
+    <script src="../../assets/js/conflictAlert.js"></script>
+   
 </body>
 </html>
