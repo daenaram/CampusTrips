@@ -691,8 +691,6 @@ try {
     </div>
 
 </div>
-
-
  
 <!-- Completed Trips -->
  <?php include 'completedTrip.php'; ?>
