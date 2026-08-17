@@ -10,6 +10,9 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once __DIR__ . '/../../assets/api/config/database.php';
 
+//for conflict detection
+require_once __DIR__ . '/../../assets/api/helpers/conflictDetection.php';
+
 $errors = [];
 $showModal = false;
 $tripActionMessage = '';
@@ -37,6 +40,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_trip'])) {
     if ($start_date !== '' && $end_date !== '' && strtotime($start_date) > strtotime($end_date)) {
         $errors[] = 'End date must be the same as or after the start date.';
     }
+
+    //checking if there is an exisitng trip that overlaps with the dates
+    if (empty($errors)) {
+        try {
+            // We need the ID and Title to trigger the popup
+            $checkStmt = $pdo->prepare("
+            SELECT id, title FROM trips 
+            WHERE user_id = ? 
+            AND (start_date <= ? AND end_date >= ?)
+            LIMIT 1
+        ");
+
+            $checkStmt->execute([$_SESSION['user_id'], $end_date, $start_date]);
+            $conflictingTrip = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($conflictingTrip) {
+                $errors[] = 'Schedule Conflict: Overlaps with "' . htmlspecialchars($conflictingTrip['title']) . '". Please choose different dates.';
+                // CRITICAL: Capture the ID for the JS bridge
+                $conflictingTripId = (int) $conflictingTrip['id'];
+            }
+        } catch (PDOException $e) {
+            error_log('Overlap check error: ' . $e->getMessage());
+        }
+    }
+
 
     if (empty($errors)) {
         try {
@@ -164,20 +192,25 @@ switch ($sort) {
 }
 
 $trips = [];
+$allTrips = [];
 $tripDetails = [];
 
 // Fetch trips and their associated details
+
 try {
 
+    $currentDate = date("Y-m-d");
     $stmt = $pdo->prepare("
         SELECT id, title, destination, start_date, end_date, notes
         FROM trips
-        WHERE user_id = ?
+        WHERE user_id = ? 
         ORDER BY $orderBy
     ");
 
     $stmt->execute([$_SESSION['user_id']]);
-    $trips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $allTrips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $trips = $allTrips;
 
     foreach ($trips as $trip) {
         $tripId = (int)$trip['id'];
@@ -200,7 +233,13 @@ try {
         $activityStmt = $pdo->prepare("SELECT id, name, city, category, activity_date, cost_nzd, description, notes FROM saved_activities WHERE user_id = ? AND trip_id = ? ORDER BY activity_date ASC, name ASC");
         $activityStmt->execute([$_SESSION['user_id'], $tripId]);
         $tripDetails[$tripId]['attractions'] = $activityStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Conflict detection for the trip
+        $tripDetails[$tripId]['conflicts'] = getTripConflicts($tripDetails[$tripId]['flights'], $tripDetails[$tripId]['hotels'], $tripDetails[$tripId]['attractions']);
     }
+
+    
+
 } catch (PDOException $e) {
     error_log('Trip load error: ' . $e->getMessage());
 }
@@ -217,6 +256,7 @@ try {
     <link rel="stylesheet" href="../../assets/css/calendar.css">
     <style>
     </style>
+    <link rel="stylesheet" href="../../assets/css/conflictAlert.css">
 </head>
 <body>
 
@@ -405,6 +445,13 @@ try {
         <?php else: ?>
             <?php foreach ($trips as $trip): ?>
                 <?php $tripId = (int)$trip['id']; ?>
+                <?php
+                $currentDate = date("Y-m-d");
+                    if($trip['end_date'] < $currentDate) {
+                    continue;
+                    }
+                $tripId = (int) $trip['id'];
+                ?>
                 <div class="trip-card saved-trip-card">
                     <div class="trip-card-title"><?php echo htmlspecialchars($trip['title']); ?></div>
                     <div class="trip-card-detail">
@@ -653,7 +700,9 @@ try {
 
 </div>
 
-
+<!--Upcoming Trips-->
+<?php include 'upcomingTrip.php'; ?>
+ 
 <!-- Completed Trips -->
  <?php include 'completedTrip.php'; ?>
 
@@ -741,7 +790,7 @@ try {
         }
     });
 
-    // --------- Trip modal behaviour ----------
+       // --------- Trip modal behaviour ----------
     const tripModal = document.getElementById('trip-modal');
     const openTripModal = document.getElementById('open-trip-modal');
     const closeTripModal = document.getElementById('close-trip-modal');
@@ -760,6 +809,26 @@ try {
         tripModal.setAttribute('aria-hidden', 'true');
     }
 
+    // Wipes any leftover draft/conflict data so the form opens blank next time
+    function clearTripFormFields() {
+        const tripForm = tripModal.querySelector('.modal-form');
+        if (!tripForm) return;
+
+        tripForm.querySelectorAll('input[type="text"], input[type="date"], textarea')
+            .forEach(function (field) {
+                field.value = '';
+            });
+
+        const errorsBox = tripForm.parentElement.querySelector('.modal-errors');
+        if (errorsBox) errorsBox.remove();
+    }
+
+    // Single source of truth for "give up on this trip attempt"
+    function cancelTripModal_() {
+        hideTripModal();
+        clearTripFormFields();
+    }
+
     function showTripDetailsModal() {
         tripDetailsModal.style.display = 'flex';
         tripDetailsModal.setAttribute('aria-hidden', 'false');
@@ -776,13 +845,14 @@ try {
         showTripModal();
     });
 
-    closeTripModal.addEventListener('click', hideTripModal);
-    cancelTripModal.addEventListener('click', hideTripModal);
+    closeTripModal.addEventListener('click', cancelTripModal_);
+    cancelTripModal.addEventListener('click', cancelTripModal_);
     tripModal.addEventListener('click', function(event) {
         if (event.target === tripModal) {
-            hideTripModal();
+            cancelTripModal_();
         }
     });
+
 
     document.querySelectorAll('.view-details-btn').forEach(function(button) {
         button.addEventListener('click', function() {
@@ -835,8 +905,7 @@ try {
     <?php if ($showModal): ?>
         window.addEventListener('DOMContentLoaded', showTripModal);
     <?php endif; ?>
-</script>
 
-<script src="../../assets/js/calendar.js"></script>
+</script>
 </body>
 </html>
