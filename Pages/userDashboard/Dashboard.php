@@ -10,6 +10,9 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once __DIR__ . '/../../assets/api/config/database.php';
 
+//for conflict detection
+require_once __DIR__ . '/../../assets/api/helpers/conflictDetection.php';
+
 $errors = [];
 $showModal = false;
 $tripActionMessage = '';
@@ -37,6 +40,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_trip'])) {
     if ($start_date !== '' && $end_date !== '' && strtotime($start_date) > strtotime($end_date)) {
         $errors[] = 'End date must be the same as or after the start date.';
     }
+
+    //checking if there is an exisitng trip that overlaps with the dates
+    if (empty($errors)) {
+        try {
+            // We need the ID and Title to trigger the popup
+            $checkStmt = $pdo->prepare("
+            SELECT id, title FROM trips 
+            WHERE user_id = ? 
+            AND (start_date <= ? AND end_date >= ?)
+            LIMIT 1
+        ");
+
+            $checkStmt->execute([$_SESSION['user_id'], $end_date, $start_date]);
+            $conflictingTrip = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($conflictingTrip) {
+                $errors[] = 'Schedule Conflict: Overlaps with "' . htmlspecialchars($conflictingTrip['title']) . '". Please choose different dates.';
+                // CRITICAL: Capture the ID for the JS bridge
+                $conflictingTripId = (int) $conflictingTrip['id'];
+            }
+        } catch (PDOException $e) {
+            error_log('Overlap check error: ' . $e->getMessage());
+        }
+    }
+
 
     if (empty($errors)) {
         try {
@@ -200,6 +228,9 @@ try {
         $activityStmt = $pdo->prepare("SELECT id, name, city, category, activity_date, cost_nzd, description, notes FROM saved_activities WHERE user_id = ? AND trip_id = ? ORDER BY activity_date ASC, name ASC");
         $activityStmt->execute([$_SESSION['user_id'], $tripId]);
         $tripDetails[$tripId]['attractions'] = $activityStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Conflict detection for the trip
+        $tripDetails[$tripId]['conflicts'] = getTripConflicts($tripDetails[$tripId]['flights'], $tripDetails[$tripId]['hotels'], $tripDetails[$tripId]['attractions']);
     }
 } catch (PDOException $e) {
     error_log('Trip load error: ' . $e->getMessage());
@@ -214,6 +245,7 @@ try {
     <link rel="stylesheet" href="../../assets/css/settingsbutton.css">
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
     <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css">
+    <link rel="stylesheet" href="../../assets/css/conflictAlert.css">
 </head>
 <body>
 
@@ -645,8 +677,7 @@ try {
 
 </div>
 
-<!--Upcoming Trips-->
-<?php include 'upcomingTrip.php'; ?>
+
  
 <!-- Completed Trips -->
  <?php include 'completedTrip.php'; ?>
@@ -793,6 +824,19 @@ try {
     <?php if ($showModal): ?>
         window.addEventListener('DOMContentLoaded', showTripModal);
     <?php endif; ?>
+
 </script>
+
+    <!--Conflict pop-up-->
+    <script>
+        window.TRIP_CONFLICT_DATA = {
+        hasConflict: <?php echo isset($conflictingTripId) ? 'true' : 'false'; ?>,
+                conflictId: <?php echo isset($conflictingTripId) ? $conflictingTripId : 'null'; ?>,
+                    showModal: <?php echo $showModal ? 'true' : 'false'; ?>
+    };
+    </script>
+    <script src="../../assets/js/conflictAlert.js"></script>
+    </script>
+
 </body>
 </html>
