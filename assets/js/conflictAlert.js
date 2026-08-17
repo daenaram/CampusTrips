@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const tripDetailsContent = document.getElementById('trip-details-content');
     const template = document.getElementById('trip-details-template-' + data.conflictId);
     const modalHeader = tripDetailsModal.querySelector('.modal-header');
+    const tripForm = document.querySelector('#trip-modal .modal-form');
 
     /**
      * Clears the conflict UI and restores the standard modal header
@@ -15,23 +16,39 @@ document.addEventListener('DOMContentLoaded', function () {
         tripDetailsContent.innerHTML = '';
     }
 
+    /**
+     * Wipes out the create-trip form fields so "Create new Trip"
+     * opens a fresh, blank form next time (instead of the
+     * conflicting title/destination/dates left over from the failed submit)
+     */
+    function clearTripFormData() {
+        if (!tripForm) return;
+
+        tripForm.querySelectorAll('input[type="text"], input[type="date"], textarea')
+            .forEach(function (field) {
+                field.value = '';
+            });
+
+        // Also hide any leftover PHP-rendered error messages
+        const errorsBox = tripForm.parentElement.querySelector('.modal-errors');
+        if (errorsBox) errorsBox.remove();
+    }
+
     if (template && tripDetailsContent) {
         // 1. HIDE THE STANDARD MODAL HEADER
         if (modalHeader) modalHeader.style.display = 'none';
 
-        // Extract summary data
         const summaryDiv = template.querySelector('.trip-details-summary');
         const summaryHtml = summaryDiv ? summaryDiv.innerHTML : '';
 
-        // Build the focused UI
         tripDetailsContent.innerHTML = `
             <div class="conflict-banner-clean">
                 <div class="conflict-header">
                     <strong>Date Overlap Detected</strong>
                 </div>
-                
+
                 <p class="conflict-subtext">You already have a trip planned during these dates:</p>
-                
+
                 <div class="conflicting-trip-brief">
                     ${summaryHtml}
                 </div>
@@ -44,26 +61,29 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
         `;
 
-        // Show the modal (using the function defined in Dashboard.php)
         showTripDetailsModal();
 
-        // 2. HANDLE RENEWAL ON "ADJUST TRIP DATES"
+        // 2. "ADJUST TRIP DATES" -> keep the entered data so the user can fix it
         document.getElementById('back-to-edit-trip').addEventListener('click', function () {
             renewModalState();
             hideTripDetailsModal();
             showTripModal();
         });
 
-        // 3. HANDLE RENEWAL ON STANDARD CLOSE BUTTON
+        // 3. STANDARD CLOSE (×) = CANCEL -> wipe the form
         const closeBtn = document.getElementById('close-trip-details-modal');
         if (closeBtn) {
-            closeBtn.addEventListener('click', renewModalState);
+            closeBtn.addEventListener('click', function () {
+                renewModalState();
+                clearTripFormData();
+            });
         }
 
-        // 4. HANDLE RENEWAL ON BACKDROP CLICK
+        // 4. BACKDROP CLICK = CANCEL -> wipe the form
         tripDetailsModal.addEventListener('click', function (event) {
             if (event.target === tripDetailsModal) {
                 renewModalState();
+                clearTripFormData();
             }
         });
     }

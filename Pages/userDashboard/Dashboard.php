@@ -743,7 +743,7 @@ try {
         }
     });
 
-    // --------- Trip modal behaviour ----------
+       // --------- Trip modal behaviour ----------
     const tripModal = document.getElementById('trip-modal');
     const openTripModal = document.getElementById('open-trip-modal');
     const closeTripModal = document.getElementById('close-trip-modal');
@@ -762,6 +762,26 @@ try {
         tripModal.setAttribute('aria-hidden', 'true');
     }
 
+    // Wipes any leftover draft/conflict data so the form opens blank next time
+    function clearTripFormFields() {
+        const tripForm = tripModal.querySelector('.modal-form');
+        if (!tripForm) return;
+
+        tripForm.querySelectorAll('input[type="text"], input[type="date"], textarea')
+            .forEach(function (field) {
+                field.value = '';
+            });
+
+        const errorsBox = tripForm.parentElement.querySelector('.modal-errors');
+        if (errorsBox) errorsBox.remove();
+    }
+
+    // Single source of truth for "give up on this trip attempt"
+    function cancelTripModal_() {
+        hideTripModal();
+        clearTripFormFields();
+    }
+
     function showTripDetailsModal() {
         tripDetailsModal.style.display = 'flex';
         tripDetailsModal.setAttribute('aria-hidden', 'false');
@@ -778,13 +798,14 @@ try {
         showTripModal();
     });
 
-    closeTripModal.addEventListener('click', hideTripModal);
-    cancelTripModal.addEventListener('click', hideTripModal);
+    closeTripModal.addEventListener('click', cancelTripModal_);
+    cancelTripModal.addEventListener('click', cancelTripModal_);
     tripModal.addEventListener('click', function(event) {
         if (event.target === tripModal) {
-            hideTripModal();
+            cancelTripModal_();
         }
     });
+
 
     document.querySelectorAll('.view-details-btn').forEach(function(button) {
         button.addEventListener('click', function() {
