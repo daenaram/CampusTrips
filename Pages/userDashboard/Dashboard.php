@@ -254,8 +254,6 @@ try {
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
     <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css">
     <link rel="stylesheet" href="../../assets/css/calendar.css">
-    <style>
-    </style>
     <link rel="stylesheet" href="../../assets/css/conflictAlert.css">
 </head>
 <body>
