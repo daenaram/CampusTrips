@@ -5,14 +5,21 @@ document.addEventListener('DOMContentLoaded', function () {
     const tripDetailsModal = document.getElementById('trip-details-modal');
     const tripDetailsContent = document.getElementById('trip-details-content');
     const template = document.getElementById('trip-details-template-' + data.conflictId);
+    const modalHeader = tripDetailsModal.querySelector('.modal-header');
+
+    /**
+     * Clears the conflict UI and restores the standard modal header
+     */
+    function renewModalState() {
+        if (modalHeader) modalHeader.style.display = 'flex';
+        tripDetailsContent.innerHTML = '';
+    }
 
     if (template && tripDetailsContent) {
-    
-        // This hides the <h3>Trip Details</h3> and the close button area
-        const modalHeader = tripDetailsModal.querySelector('.modal-header');
+        // 1. HIDE THE STANDARD MODAL HEADER
         if (modalHeader) modalHeader.style.display = 'none';
 
-        //Extract summary data
+        // Extract summary data
         const summaryDiv = template.querySelector('.trip-details-summary');
         const summaryHtml = summaryDiv ? summaryDiv.innerHTML : '';
 
@@ -37,13 +44,27 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
         `;
 
+        // Show the modal (using the function defined in Dashboard.php)
         showTripDetailsModal();
 
+        // 2. HANDLE RENEWAL ON "ADJUST TRIP DATES"
         document.getElementById('back-to-edit-trip').addEventListener('click', function () {
-            // Restore the header for normal "View Details" usage before closing
-            if (modalHeader) modalHeader.style.display = 'flex';
+            renewModalState();
             hideTripDetailsModal();
             showTripModal();
+        });
+
+        // 3. HANDLE RENEWAL ON STANDARD CLOSE BUTTON
+        const closeBtn = document.getElementById('close-trip-details-modal');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', renewModalState);
+        }
+
+        // 4. HANDLE RENEWAL ON BACKDROP CLICK
+        tripDetailsModal.addEventListener('click', function (event) {
+            if (event.target === tripDetailsModal) {
+                renewModalState();
+            }
         });
     }
 });

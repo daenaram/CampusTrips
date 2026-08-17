@@ -192,20 +192,25 @@ switch ($sort) {
 }
 
 $trips = [];
+$allTrips = [];
 $tripDetails = [];
 
 // Fetch trips and their associated details
+
 try {
 
+    $currentDate = date("Y-m-d");
     $stmt = $pdo->prepare("
         SELECT id, title, destination, start_date, end_date, notes
         FROM trips
-        WHERE user_id = ?
+        WHERE user_id = ? 
         ORDER BY $orderBy
     ");
 
     $stmt->execute([$_SESSION['user_id']]);
-    $trips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $allTrips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $trips = $allTrips;
 
     foreach ($trips as $trip) {
         $tripId = (int)$trip['id'];
@@ -232,6 +237,9 @@ try {
         // Conflict detection for the trip
         $tripDetails[$tripId]['conflicts'] = getTripConflicts($tripDetails[$tripId]['flights'], $tripDetails[$tripId]['hotels'], $tripDetails[$tripId]['attractions']);
     }
+
+    
+
 } catch (PDOException $e) {
     error_log('Trip load error: ' . $e->getMessage());
 }
@@ -429,6 +437,13 @@ try {
         <?php else: ?>
             <?php foreach ($trips as $trip): ?>
                 <?php $tripId = (int)$trip['id']; ?>
+                <?php
+                $currentDate = date("Y-m-d");
+                    if($trip['end_date'] < $currentDate) {
+                    continue;
+                    }
+                $tripId = (int) $trip['id'];
+                ?>
                 <div class="trip-card saved-trip-card">
                     <div class="trip-card-title"><?php echo htmlspecialchars($trip['title']); ?></div>
                     <div class="trip-card-detail">
