@@ -912,6 +912,7 @@ try {
             };
     </script>
     <script src="../../assets/js/conflictAlert.js"></script>
+    <script src="../../assets/js/calendar.js"></script>
    
 </body>
 </html>
