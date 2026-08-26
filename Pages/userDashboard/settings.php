@@ -205,7 +205,12 @@ if (!isset($_SESSION['user_id'])) {
             </button>
         </li>
 
-
+        <li>
+            <button type="button" onclick="location.href='budget.php'">
+                Budget
+            </button>
+        </li>
+        
         <!-- Settings -->
         <li>
             <button
