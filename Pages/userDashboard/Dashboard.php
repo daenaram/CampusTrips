@@ -283,6 +283,11 @@ try {
             </button>
         </li>
         <li>
+            <button type="button" onclick="location.href='budget.php'">
+                Budget
+            </button>
+        </li>
+        <li>
             <button type="button" onclick="location.href='settings.php'">
                 Settings
             </button>
@@ -635,6 +640,11 @@ try {
                                 <?php endforeach; ?>
                             </div>
                         <?php endif; ?>
+                    </div>
+
+                    <div class="trip-details-section">
+                        <h5>Budget</h5>
+                        <a href="budget.php?trip_id=<?php echo $tripId; ?>" class="trip-action-link">View Budget Breakdown</a>
                     </div>
 
                     <div class="trip-details-section">
