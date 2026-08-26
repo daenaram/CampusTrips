@@ -13,6 +13,10 @@ require_once __DIR__ . '/../../assets/api/config/database.php';
 //for conflict detection
 require_once __DIR__ . '/../../assets/api/helpers/conflictDetection.php';
 
+//for budget totals (shared with budget.php)
+require_once __DIR__ . '/../../assets/api/helpers/currencyHelper.php';
+require_once __DIR__ . '/../../assets/api/helpers/budgetHelper.php';
+
 $errors = [];
 $showModal = false;
 $tripActionMessage = '';
@@ -236,6 +240,9 @@ try {
 
         // Conflict detection for the trip
         $tripDetails[$tripId]['conflicts'] = getTripConflicts($tripDetails[$tripId]['flights'], $tripDetails[$tripId]['hotels'], $tripDetails[$tripId]['attractions']);
+
+        // Budget summary for the trip (flights + hotels + activities + custom items, all in NZD)
+        $tripDetails[$tripId]['budget'] = getTripBudgetSummary($pdo, $tripId, $_SESSION['user_id']);
     }
 
     
@@ -487,6 +494,11 @@ try {
                         <strong>Trip Duration</strong>
                         <span><?php echo $duration; ?></span>
                     </div>
+
+                    <div class="trip-card-detail">
+                        <strong>Total Cost</strong>
+                        <span>NZD <?php echo number_format($tripDetails[$tripId]['budget']['grand_total'] ?? 0, 2); ?></span>
+                    </div>
                     
                     <!--Added style to separate the two buttons-->
                     <div class="trip-card-actions"
@@ -644,7 +656,13 @@ try {
 
                     <div class="trip-details-section">
                         <h5>Budget</h5>
-                        <a href="budget.php?trip_id=<?php echo $tripId; ?>" class="trip-action-link">View Budget Breakdown</a>
+                        <p style="margin: 4px 0 8px 0;">
+                            <strong>Total Cost:</strong> NZD <?php echo number_format($tripDetails[$tripId]['budget']['grand_total'] ?? 0, 2); ?>
+                        </p>
+                        <a href="budget.php?trip_id=<?php echo $tripId; ?>"
+                           style="background: none; font-weight: normal; font-size: 0.85em; color: #2563eb; text-decoration: underline; padding: 0;">
+                            View Budget Breakdown
+                        </a>
                     </div>
 
                     <div class="trip-details-section">
