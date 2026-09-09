@@ -152,6 +152,18 @@ try {
         FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
     )");
 
+    // Existing installations may have been created with MyISAM, which ignores
+    // transactions and foreign keys. Convert the related tables before saves
+    // rely on both guarantees.
+    $tableStatusStmt = $pdo->prepare("SHOW TABLE STATUS LIKE ?");
+    foreach (['trips', 'saved_flights', 'saved_accommodations', 'saved_activities'] as $table) {
+        $tableStatusStmt->execute([$table]);
+        $tableStatus = $tableStatusStmt->fetch(PDO::FETCH_ASSOC);
+        if (($tableStatus['Engine'] ?? '') !== 'InnoDB') {
+            $pdo->exec("ALTER TABLE `$table` ENGINE=InnoDB");
+        }
+    }
+
     // Activities
     $pdo->exec("CREATE TABLE IF NOT EXISTS activities (
         id                 INT AUTO_INCREMENT PRIMARY KEY,
