@@ -20,6 +20,19 @@
         return 'NZD ' + Number(value).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    //Format the amount to using the correct symbol or decimal for any currency. JPY/KRW does not uses .00
+    function formatByCurrency(amount, currencyCode) {
+        try {
+            return new Intl.NumberFormat('en-NZ',
+                {
+                    style: 'currency',
+                    currency: currencyCode
+                }).format(amount);
+        } catch (e) {
+            return Number(amount).toFixed(2) + ' ' + currencyCode;
+            }
+    }
+
     function getTripById(tripId) {
         return BUDGET_TRIPS.find(t => parseInt(t.id, 10) === parseInt(tripId, 10));
     }
@@ -73,7 +86,7 @@
                         <span class="budget-item-category">${escapeHtml(item.category)}</span>
                     </div>
                     <div class="budget-item-amounts">
-                        <span>${Number(item.amount).toLocaleString('en-NZ', {minimumFractionDigits:2, maximumFractionDigits:2})} ${escapeHtml(item.currency)}</span>
+                        <span>${formatByCurrency(item.amount, item.currency)}</span>
                         <span class="budget-item-nzd">= ${formatCurrency(item.amount_nzd)}</span>
                     </div>
                     <div class="budget-item-actions">
