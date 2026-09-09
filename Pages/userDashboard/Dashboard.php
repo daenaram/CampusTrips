@@ -533,44 +533,212 @@ try {
                         <p><strong>Trip Duration:</strong> <?php echo $duration; ?></p>
                     </div>
 
-                    <div class="trip-details-section">
-                        <h5>Flights</h5>
-                        <?php if (empty($tripDetails[$tripId]['flights'])): ?>
-                            <p class="trip-details-empty">No flights added for this trip yet.</p>
-                            <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="flights">Add Flight</button>
-                        <?php else: ?>
-                            <div class="saved-items-grid">
-                                <?php foreach ($tripDetails[$tripId]['flights'] as $flight): ?>
-                                    <div class="saved-item-card saved-item-flight-card">
-                                        <div class="saved-item-header">
-                                            <h4><?php echo htmlspecialchars($flight['airline'] . ' ' . $flight['flight_number']); ?></h4>
-                                            <span class="saved-item-badge">Flight</span>
-                                        </div>
+                    <div class="trip-details-section trip-flight-expense-section">
+                        <div class="trip-flights-column">
+                            <h5>Flights</h5><?php if (empty($tripDetails[$tripId]['flights'])): ?>
+                                <p class="trip-details-empty">No flights added for this trip yet.</p>
+                                <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="flights">Add Flight</button>
+                            <?php else: ?>
+
+                                <div class="saved-items-grid flight-stack">
+                                    <?php foreach ($tripDetails[$tripId]['flights'] as $flight): ?>
+                                        <div class="collapsible-card">
+                                            <button type="button" class="collapsible-header">
+                                                <div>
+                                                    <strong>
+                                                        <?php echo htmlspecialchars($flight['airline']); ?>
+                                                        <?php echo htmlspecialchars($flight['flight_number']); ?>
+                                                    </strong>
+                                                    <span class="collapsed-date"><?php echo date('d M Y', strtotime($flight['departure_datetime'])); ?></span>
+                                                </div>
+                                                <span class="collapse-arrow">⌄</span>
+                                            </button>
+                                    
+                                    <div class="collapsible-content">
+
                                         <div class="saved-item-meta">
-                                            <span><strong>Route:</strong> <?php echo htmlspecialchars($flight['departure_city'] . ' → ' . $flight['arrival_city']); ?></span>
-                                            <span><strong>From:</strong> <?php echo htmlspecialchars($flight['departure_airport']); ?></span>
-                                            <span><strong>To:</strong> <?php echo htmlspecialchars($flight['arrival_airport']); ?></span>
-                                            <span><strong>Departure:</strong> <?php echo htmlspecialchars($flight['departure_datetime'] ? date('d M Y H:i', strtotime($flight['departure_datetime'])) : 'TBD'); ?></span>
-                                            <span><strong>Arrival:</strong> <?php echo htmlspecialchars($flight['arrival_datetime'] ? date('d M Y H:i', strtotime($flight['arrival_datetime'])) : 'TBD'); ?></span>
-                                            <span><strong>Duration:</strong> <?php echo htmlspecialchars(floor($flight['duration_minutes'] / 60) . 'h ' . ($flight['duration_minutes'] % 60) . 'm'); ?></span>
-                                            <span><strong>Stops:</strong> <?php echo htmlspecialchars($flight['stops'] == 0 ? 'Direct' : $flight['stops'] . ' stop' . ($flight['stops'] > 1 ? 's' : '')); ?></span>
+
+                                            <div class="detail-row">
+                                                <strong>Route:</strong>
+                                                    <span>  
+                                                        <?php echo htmlspecialchars(
+                                                            $flight['departure_city'] .
+                                                            ' → ' .
+                                                            $flight['arrival_city']
+                                                        ); ?>
+                                                    </span>
+                                            </div>
+
+                                            <div class="detail-row">
+                                                <strong>From:</strong>    
+                                                    <span>
+                                                        <?php echo htmlspecialchars(
+                                                            $flight['departure_airport']
+                                                        ); ?>
+                                                    </span>
+                                            </div>
+
+                                            <div class="detail-row">
+                                                <strong>To:</strong>    
+                                                    <span>
+                                                        <?php echo htmlspecialchars(
+                                                            $flight['arrival_airport']
+                                                        ); ?>
+                                                    </span>
+                                            </div>
+
+                                            <div class="detail-row">
+                                                <strong>Departure:</strong>    
+                                                    <span>
+                                                        <?php echo htmlspecialchars(
+                                                            $flight['departure_datetime']
+                                                                ? date(
+                                                                    'd M Y H:i',
+                                                                    strtotime($flight['departure_datetime'])
+                                                                )
+                                                                : 'TBD'
+                                                        ); ?>
+                                                    </span>
+                                            </div>
+                                            
+                                            <div class="detail-row">
+                                                <strong>Arrival:</strong>    
+                                                    <span>
+                                                        
+                                                        <?php echo htmlspecialchars(
+                                                            $flight['arrival_datetime']
+                                                                ? date(
+                                                                    'd M Y H:i',
+                                                                    strtotime($flight['arrival_datetime'])
+                                                                )
+                                                                : 'TBD'
+                                                        ); ?>
+                                                    </span>
+                                            </div>
+
+                                            <div class="detail-row">
+                                                <strong>Duration:</strong>    
+                                                    <span>
+                                                        <?php echo htmlspecialchars(
+                                                            floor($flight['duration_minutes'] / 60)
+                                                            . 'h '
+                                                            . ($flight['duration_minutes'] % 60)
+                                                            . 'm'
+                                                        ); ?>
+                                                    </span>
+                                            </div>
+
+                                            <div class="detail-row">
+                                                <strong>Stops:</strong>   
+                                                    <span>
+                                                        <?php echo htmlspecialchars(
+                                                            $flight['stops'] == 0
+                                                                ? 'Direct'
+                                                                : $flight['stops'] .
+                                                                ' stop' .
+                                                                ($flight['stops'] > 1 ? 's' : '')
+                                                        ); ?>
+                                                    </span>
+                                            </div>
                                         </div>
+
                                         <div class="saved-item-footer">
-                                            <span>NZD <?php echo htmlspecialchars(number_format($flight['price_nzd'], 0)); ?></span>
-                                            <span><?php echo htmlspecialchars($flight['cabin_class'] ?: 'Economy'); ?></span>
+
+                                            <span>
+                                                NZD
+                                                <?php echo htmlspecialchars(
+                                                    number_format($flight['price_nzd'], 0)
+                                                ); ?>
+                                            </span>
+
+                                            <span>
+                                                <?php echo htmlspecialchars(
+                                                    $flight['cabin_class'] ?: 'Economy'
+                                                ); ?>
+                                            </span>
+
                                         </div>
+
                                         <div class="saved-item-actions">
-                                            <form method="POST" onsubmit="return confirm('Remove this flight from the trip?');">
-                                                <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
-                                                <input type="hidden" name="item_type" value="flight">
-                                                <input type="hidden" name="item_id" value="<?php echo htmlspecialchars($flight['id']); ?>">
-                                                <button type="submit" name="delete_saved_item" class="saved-item-remove-btn">Remove</button>
+
+                                            <form
+                                                method="POST"
+                                                onsubmit="return confirm('Remove this flight from the trip?');"
+                                            >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="trip_id"
+                                                    value="<?php echo $tripId; ?>"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="item_type"
+                                                    value="flight"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="item_id"
+                                                    value="<?php echo htmlspecialchars($flight['id']); ?>"
+                                                >
+
+                                                <button
+                                                    type="submit"
+                                                    name="delete_saved_item"
+                                                    class="saved-item-remove-btn"
+                                                >
+                                                    Remove
+                                                </button>
+
                                             </form>
+
                                         </div>
+
                                     </div>
-                                <?php endforeach; ?>
+
+                                </div>
+
+                            <?php endforeach; ?>
+
+                        </div>
+                    <?php endif; ?>
+                    </div>
+                             
+                        <div class="trip-expense-column">
+
+                            <div class="expense-log-header">
+                                <div>
+                                    <h5>Expense Log</h5>
+
+                                    <p class="expense-total">
+                                        Total Expenses:
+                                        <strong>NZD <span class="expense-total-value">0.00</span></strong>
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    class="add-expense-btn"
+                                    data-trip-id="<?php echo $tripId; ?>">
+                                    <span>+</span>
+                                    Add Expense
+                                </button>
                             </div>
-                        <?php endif; ?>
+
+                            <div
+                                class="expense-list"
+                                data-trip-id="<?php echo $tripId; ?>">
+
+                                <p class="expense-empty">
+                                    No expenses added yet.
+                                </p>
+
+                            </div>
+
+                        </div>
+
                     </div>
 
                     <div class="trip-details-section">
@@ -647,26 +815,85 @@ try {
 
                     <div class="trip-details-section">
                         <h5>Estimated Travel Duration</h5>
+
                         <?php if (empty($tripDetails[$tripId]['flights'])): ?>
-                            <p class="trip-details-empty">Add trip items to estimate travel duration.</p>
+
+                            <p class="trip-details-empty">
+                                Add trip items to estimate travel duration.
+                            </p>
+
                         <?php else: ?>
+
+                            <?php
+                                $totalFlightMinutes = 0;
+
+                                foreach ($tripDetails[$tripId]['flights'] as $flight) {
+                                    $totalFlightMinutes += (int)$flight['duration_minutes'];
+                                }
+
+                                $totalHours = floor($totalFlightMinutes / 60);
+                                $totalMinutes = $totalFlightMinutes % 60;
+                            ?>
+
                             <div class="saved-items-grid">
-                                <?php foreach ($tripDetails[$tripId]['flights'] as $flight): ?>
-                                    <div class="saved-item-card saved-item-activity-card">
-                                        <div class="saved-item-header">
-                                            <h4><?php echo htmlspecialchars(floor($flight['duration_minutes'] / 60) . ' hours ' . ($flight['duration_minutes'] % 60) . ' minutes '); ?></h4>
-                                            <span class="saved-item-badge">Estimate</span>
-                                        </div>
-                                        <div class="saved-item-meta">
-                                            <span><strong>Flight Duration:</strong> <?php echo htmlspecialchars(floor($flight['duration_minutes'] / 60) . ' hours ' . ($flight['duration_minutes'] % 60) . ' minutes '); ?></span>
-                                            <span><strong>Airport to Hotel:</strong> -- </span>
-                                            <span><strong>Hotel to Activity:</strong> -- </span>
-                                            <span><strong>Activity to Airport:</strong> -- </span>
-                                        </div>
+
+                                <div class="saved-item-card saved-item-activity-card">
+
+                                    <div class="saved-item-header">
+
+                                        <h4>
+                                            <?php echo $totalHours . ' hours ' . $totalMinutes . ' minutes'; ?>
+                                        </h4>
+
+                                        <span class="saved-item-badge">
+                                            Estimate
+                                        </span>
+
                                     </div>
-                                <?php endforeach; ?>
+
+                                    <div class="saved-item-meta">
+
+                                        <?php foreach ($tripDetails[$tripId]['flights'] as $flight): ?>
+
+                                            <?php
+                                                $flightHours = floor($flight['duration_minutes'] / 60);
+                                                $flightMinutes = $flight['duration_minutes'] % 60;
+                                            ?>
+
+                                            <span>
+                                                <strong>
+                                                    <?php echo htmlspecialchars(
+                                                        $flight['departure_airport']
+                                                        . ' → '
+                                                        . $flight['arrival_airport']
+                                                    ); ?>:
+                                                </strong>
+
+                                                <?php echo $flightHours . 'h ' . $flightMinutes . 'm'; ?>
+                                            </span>
+
+                                        <?php endforeach; ?>
+
+                                        <span>
+                                            <strong>Airport to Hotel:</strong> --
+                                        </span>
+
+                                        <span>
+                                            <strong>Hotel to Activity:</strong> --
+                                        </span>
+
+                                        <span>
+                                            <strong>Activity to Airport:</strong> --
+                                        </span>
+
+                                    </div>
+
+                                </div>
+
                             </div>
+
                         <?php endif; ?>
+
                     </div>
 
                     <div class="trip-details-section">
@@ -801,6 +1028,102 @@ try {
     </div>
 </div>
 
+<div
+        id="expense-modal"
+        class="modal-backdrop"
+        aria-hidden="true">
+
+        <div class="modal-window expense-modal-window">
+
+            <div class="modal-header">
+                <h3 id="expense-modal-title">Add Expense</h3>
+
+                <button
+                    type="button"
+                    class="modal-close"
+                    id="close-expense-modal">
+                    ×
+                </button>
+            </div>
+
+            <div class="modal-body">
+
+                <form id="expense-form" class="expense-form">
+
+                    <input
+                        type="hidden"
+                        id="expense-trip-id">
+
+                    <input
+                        type="hidden"
+                        id="expense-edit-id">
+
+                    <label for="expense-type">
+                        Expense Type
+                    </label>
+
+                    <select id="expense-type" required>
+                        <option value="">Choose expense type</option>
+                        <option value="Food & Dining">Food & Dining</option>
+                        <option value="Transport">Transport</option>
+                        <option value="Accommodation">Accommodation</option>
+                        <option value="Activities">Activities</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Travel Fees">Travel Fees</option>
+                        <option value="Emergency">Emergency</option>
+                        <option value="Other">Other</option>
+                    </select>
+
+                    <label for="expense-name">
+                        Expense Name
+                    </label>
+
+                    <input
+                        type="text"
+                        id="expense-name"
+                        placeholder="e.g. Dinner at restaurant"
+                        required>
+
+                    <label for="expense-cost">
+                        Cost (NZD)
+                    </label>
+
+                    <input
+                        type="number"
+                        id="expense-cost"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="0.00"
+                        required>
+
+                    <div class="expense-form-error" id="expense-form-error"></div>
+
+                    <div class="modal-actions">
+
+                        <button
+                            type="button"
+                            class="modal-btn modal-cancel"
+                            id="cancel-expense-modal">
+                            Cancel
+                        </button>
+
+                        <button
+                            type="submit"
+                            class="modal-btn modal-save">
+                            Save Expense
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
 <!-- Trips data for calendar (as JSON) -->
 <script>
     const tripsData = <?php echo json_encode($trips); ?>;
@@ -920,6 +1243,102 @@ try {
             }
         });
     });
+
+    // ---------- Collapsible trip item cards ----------
+    tripDetailsContent.addEventListener('click', function(event) {
+        const header = event.target.closest('.collapsible-header');
+
+        if (!header) {
+            return;
+        }
+
+        const clickedCard = header.closest('.collapsible-card');
+
+        if (!clickedCard) {
+            return;
+        }
+
+        const wasExpanded = clickedCard.classList.contains('expanded');
+
+        // Close all cards first
+        tripDetailsContent
+            .querySelectorAll('.collapsible-card.expanded')
+            .forEach(function(card) {
+                card.classList.remove('expanded');
+            });
+
+        // If the clicked card was closed before, open it
+        if (!wasExpanded) {
+            clickedCard.classList.add('expanded');
+        }
+    });
+
+
+    // ---------- Expense Log UI ----------
+
+    const expenseModal =
+        document.getElementById('expense-modal');
+
+    const expenseForm =
+        document.getElementById('expense-form');
+
+    const expenseTripId =
+        document.getElementById('expense-trip-id');
+
+    const expenseEditId =
+        document.getElementById('expense-edit-id');
+
+    const expenseType =
+        document.getElementById('expense-type');
+
+    const expenseName =
+        document.getElementById('expense-name');
+
+    const expenseCost =
+        document.getElementById('expense-cost');
+
+    const expenseFormError =
+        document.getElementById('expense-form-error');
+
+    const expenseModalTitle =
+        document.getElementById('expense-modal-title');
+
+    const closeExpenseModal =
+        document.getElementById('close-expense-modal');
+
+    const cancelExpenseModal =
+        document.getElementById('cancel-expense-modal');
+
+
+    let expensesByTrip = {};
+
+    let nextExpenseId = 1;
+
+    function showExpenseModal(tripId) {
+
+        expenseForm.reset();
+
+        expenseTripId.value = tripId;
+        expenseEditId.value = '';
+
+        expenseFormError.textContent = '';
+        expenseModalTitle.textContent = 'Add Expense';
+
+        expenseModal.style.display = 'flex';
+        expenseModal.setAttribute('aria-hidden', 'false');
+    }
+
+
+    function hideExpenseModal() {
+
+        expenseModal.style.display = 'none';
+        expenseModal.setAttribute('aria-hidden', 'true');
+
+        expenseForm.reset();
+
+        expenseEditId.value = '';
+        expenseFormError.textContent = '';
+    }
 
     tripDetailsContent.addEventListener('click', function(event) {
         const button = event.target.closest('.trip-quick-add-btn');
