@@ -39,7 +39,7 @@ try {
         start_date   DATE         NOT NULL,
         end_date     DATE         NOT NULL,
         notes        TEXT,
-        travel_style VARCHAR(50),
+        travel_style VARCHAR(50) NOT NULL DEFAULT 'Personal Trip',
         created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )");
@@ -53,6 +53,10 @@ try {
     if (!empty($tripGroupSizeColumn)) {
         $pdo->exec("ALTER TABLE trips DROP COLUMN group_size");
     }
+
+    //Used for trip category selection
+    $pdo->exec("ALTER TABLE trips MODIFY travel_style VARCHAR(50) NOT NULL DEFAULT 'Personal Trip'");
+    $pdo->exec("UPDATE trips SET travel_style = 'Personal Trip' WHERE travel_style IS NULL OR travel_style = ''");
 
     // Flights — temporary dummy search pool
     $pdo->exec("CREATE TABLE IF NOT EXISTS flights (

@@ -17,6 +17,9 @@ require_once __DIR__ . '/../../assets/api/helpers/conflictDetection.php';
 require_once __DIR__ . '/../../assets/api/helpers/currencyHelper.php';
 require_once __DIR__ . '/../../assets/api/helpers/budgetHelper.php';
 
+//for trip category
+require_once __DIR__ . '/../../assets/api/helpers/categoryHelper.php';
+
 $errors = [];
 $showModal = false;
 $tripActionMessage = '';
@@ -27,6 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_trip'])) {
     $destination = trim($_POST['destination'] ?? '');
     $start_date = trim($_POST['start_date'] ?? '');
     $end_date = trim($_POST['end_date'] ?? '');
+    $travel_style = tripCategory($_POST['travel_style'] ?? null);
     $notes = trim($_POST['notes'] ?? '');
 
     if ($title === '') {
@@ -73,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_trip'])) {
     if (empty($errors)) {
         try {
             $stmt = $pdo->prepare("INSERT INTO trips (user_id, title, destination, start_date, end_date, notes, travel_style) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$_SESSION['user_id'], $title, $destination, $start_date, $end_date, $notes, '']);
+            $stmt->execute([$_SESSION['user_id'], $title, $destination, $start_date, $end_date, $notes, $travel_style]);
             header('Location: ' . $_SERVER['REQUEST_URI']);
             exit();
         } catch (PDOException $e) {
@@ -205,7 +209,7 @@ try {
 
     $currentDate = date("Y-m-d");
     $stmt = $pdo->prepare("
-        SELECT id, title, destination, start_date, end_date, notes
+        SELECT id, title, destination, start_date, end_date, notes, travel_style
         FROM trips
         WHERE user_id = ? 
         ORDER BY $orderBy
@@ -461,8 +465,12 @@ try {
                     continue;
                     }
                 $tripId = (int) $trip['id'];
+                $category = getCategoryDetails($trip['travel_style']);
                 ?>
                 <div class="trip-card saved-trip-card">
+                    <span class="bookmark-ribbon" style="--ribbon-color: <?php echo htmlspecialchars($category['color']); ?>" title="<?php echo htmlspecialchars($category['label']); ?>">
+                        <span class="bookmark-ribbon-label"><?php echo htmlspecialchars(strtoupper(substr($category['label'], 0, 1))); ?></span>
+                    </span>
                     <div class="trip-card-title"><?php echo htmlspecialchars($trip['title']); ?></div>
                     <div class="trip-card-detail">
                         <strong>Destination</strong>
@@ -704,6 +712,19 @@ try {
                         <input type="text" name="destination" value="<?php echo htmlspecialchars($_POST['destination'] ?? ''); ?>" required>
                     </label>
                     <label>
+    Trip Category
+    <select name="travel_style" required>
+        <?php
+                            $selectedCategory = $_POST['travel_style'] ?? 'Personal Trip';
+                            foreach (getTripCategories() as $key => $meta):
+                                ?>
+                                <option value="<?php echo htmlspecialchars($key); ?>" <?php echo $selectedCategory === $key ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($meta['label']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <label>
                         Start Date
                         <input type="date" name="start_date" value="<?php echo htmlspecialchars($_POST['start_date'] ?? ''); ?>" required>
                     </label>
@@ -842,6 +863,10 @@ try {
             .forEach(function (field) {
                 field.value = '';
             });
+
+        const categorySelect = tripForm.querySelector('select[name="travel_style"]');
+        if (categorySelect) categorySelect.value = 'Personal Trip'; // Reset to the first option
+        
 
         const errorsBox = tripForm.parentElement.querySelector('.modal-errors');
         if (errorsBox) errorsBox.remove();

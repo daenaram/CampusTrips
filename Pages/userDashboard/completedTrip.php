@@ -1,13 +1,15 @@
 <?php
 /* Completed Trips Section */
 
-$currentDate = date("Y-m-d");
+$currentDate = new DateTime('today');
 $completedTrips = [];
 
 // Filter for trips that have already ended
 if (!empty($trips) && is_array($trips)) {
     foreach ($trips as $trip) {
-        if ($trip['end_date'] < $currentDate) {
+        $endDate = new DateTime($trip['end_date']);
+        $endDate->setTime(0, 0, 0);
+        if ($endDate <= $currentDate) {
             $completedTrips[] = $trip;
         }
     }
@@ -33,6 +35,7 @@ if (!empty($trips) && is_array($trips)) {
             </div>
         <?php else: ?>
             <?php foreach ($completedTrips as $trip): ?>
+                <?php $category = getCategoryDetails($trip['travel_style']); ?>
                 <?php
                 $tripId = (int) $trip['id'];
                 $tripName = $trip['title'];
@@ -43,12 +46,17 @@ if (!empty($trips) && is_array($trips)) {
                 $daysSinceTrip = (int) $endDateObj->diff($today)->format("%a");
 
                 //total budget calculation - if budget null or 0 the budget is not set
-
+        
                 $totalBudget = isset($trip['budget']) ? (float) $trip['budget'] : 0;
                 $formattedBudget = "$" . number_format($totalBudget, 2);
                 ?>
 
                 <div class="trip-card saved-trip-card completed-card" style="opacity: 0.85; background-color: #fafafa;">
+                    <span class="bookmark-ribbon" style="--ribbon-color: <?php echo htmlspecialchars($category['color']); ?>;"
+                        title="<?php echo htmlspecialchars($category['label']); ?>">
+                        <span
+                            class="bookmark-ribbon-label"><?php echo htmlspecialchars(strtoupper(substr($category['label'], 0, 1))); ?></span>
+                    </span>
                     <div class="trip-card-title" style="color: #4b5563;">
                         <?php echo htmlspecialchars($tripName); ?>
                         <span style="font-size: 0.8em; color: #10b981;">✓</span>
@@ -87,7 +95,7 @@ if (!empty($trips) && is_array($trips)) {
                     </div>
 
                     <div class="trip-card-actions">
-                        <button type="button" class="trip-action-btn view-details-btn" data-trip-id="<?php echo $tripId; ?>"
+                        <button type="button" class="trip-action-btn view-memories-btn" data-trip-id="<?php echo $tripId; ?>"
                             style="width: 100%; background: #9ca3af;">View Memories</button>
                     </div>
                 </div>
