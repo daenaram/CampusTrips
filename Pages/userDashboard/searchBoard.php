@@ -77,7 +77,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_item'])) {
     $createNewTrip = isset($_POST['create_new_trip']) && $_POST['create_new_trip'] === '1';
     $itemType = $_POST['item_type'] ?? '';
 
-    if ($createNewTrip) {
+    // The item type must be recognised up front, otherwise we could create a
+    // brand-new trip and then have nothing valid to attach to it.
+    if (!in_array($itemType, ['flight', 'accommodation', 'activity'], true)) {
+        $saveStatus['error'] = 'Unable to save that item.';
+    }
+
+    // Validate the new-trip details (if any) before writing anything.
+    $newTripValues = null;
+    if (empty($saveStatus['error']) && $createNewTrip) {
         $newTripTitle = trim($_POST['new_trip_title'] ?? '');
         $newTripDestination = trim($_POST['new_trip_destination'] ?? '');
         $newTripStartDate = trim($_POST['new_trip_start_date'] ?? '');
@@ -104,129 +112,170 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_item'])) {
         if (!empty($tripErrors)) {
             $saveStatus['error'] = implode(' ', $tripErrors);
         } else {
-            try {
-                $createTripStmt = $pdo->prepare("INSERT INTO trips (user_id, title, destination, start_date, end_date, notes, travel_style) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                $createTripStmt->execute([$_SESSION['user_id'], $newTripTitle, $newTripDestination, $newTripStartDate, $newTripEndDate, $newTripNotes, '']);
-                $tripId = (int)$pdo->lastInsertId();
+            $newTripValues = [$newTripTitle, $newTripDestination, $newTripStartDate, $newTripEndDate, $newTripNotes];
+        }
+    }
 
-                $tripStmt = $pdo->prepare("SELECT id, title FROM trips WHERE user_id = ? AND end_date >= CURDATE() ORDER BY start_date ASC, title ASC");
-                $tripStmt->execute([$_SESSION['user_id']]);
-                $userTrips = $tripStmt->fetchAll(PDO::FETCH_ASSOC);
-            } catch (PDOException $e) {
-                error_log('Trip creation error: ' . $e->getMessage());
-                $saveStatus['error'] = 'Unable to create the trip right now.';
+    if (empty($saveStatus['error'])) {
+        $requiredItemFields = [
+            'flight' => ['airline_value', 'flight_number', 'departure_city', 'arrival_city', 'departure_airport', 'arrival_airport', 'departure_datetime', 'arrival_datetime'],
+            'accommodation' => ['accommodation_name', 'accommodation_type', 'accommodation_city', 'accommodation_country', 'accommodation_address'],
+            'activity' => ['activity_name', 'activity_city', 'activity_category'],
+        ][$itemType];
+
+        foreach ($requiredItemFields as $field) {
+            if (trim((string)($_POST[$field] ?? '')) === '') {
+                $saveStatus['error'] = 'The selected item is missing ' . str_replace('_', ' ', $field) . '. Please try dragging the result again.';
+                break;
             }
         }
     }
 
-    if (empty($saveStatus['error']) && (!$tripId || $tripId <= 0)) {
+    if (empty($saveStatus['error']) && !$createNewTrip && (!$tripId || $tripId <= 0)) {
         $saveStatus['error'] = 'Please choose or create a trip before saving this item.';
     }
 
-    if (empty($saveStatus['error']) && $tripId && $tripId > 0) {
-        $tripOwnershipStmt = $pdo->prepare("SELECT id FROM trips WHERE id = ? AND user_id = ?");
-        $tripOwnershipStmt->execute([$tripId, $_SESSION['user_id']]);
+    // Create the trip (when requested) and save the flight/accommodation/activity
+    // together in one transaction, so we never leave an empty trip behind when
+    // the item itself cannot be saved.
+    if (empty($saveStatus['error'])) {
+        try {
+            $pdo->beginTransaction();
 
-        if (!$tripOwnershipStmt->fetch()) {
-            $saveStatus['error'] = 'That trip could not be found.';
-        } else {
-            try {
-                if ($itemType === 'flight') {
-                    $airlineValue = trim($_POST['airline_value'] ?? $_POST['airline'] ?? '');
-                    $flightNumber = trim($_POST['flight_number'] ?? '');
-                    $departureDatetime = trim($_POST['departure_datetime'] ?? '');
-
-                    // --- Duplicate check: same airline + flight number + departure time already saved to this trip ---
-                    $dupFlightStmt = $pdo->prepare("SELECT id FROM saved_flights WHERE user_id = ? AND trip_id = ? AND airline = ? AND flight_number = ? AND departure_datetime = ?");
-                    $dupFlightStmt->execute([$_SESSION['user_id'], $tripId, $airlineValue, $flightNumber, $departureDatetime]);
-
-                    if ($dupFlightStmt->fetch()) {
-                        $saveStatus['error'] = 'This flight has already been added to this trip.';
-                    } else {
-                        $stmt = $pdo->prepare("INSERT INTO saved_flights (user_id, trip_id, airline, flight_number, departure_city, arrival_city, departure_airport, arrival_airport, departure_datetime, arrival_datetime, duration_minutes, stops, cabin_class, price_nzd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                        $stmt->execute([
-                            $_SESSION['user_id'],
-                            $tripId,
-                            $airlineValue,
-                            $flightNumber,
-                            trim($_POST['departure_city'] ?? ''),
-                            trim($_POST['arrival_city'] ?? ''),
-                            trim($_POST['departure_airport'] ?? ''),
-                            trim($_POST['arrival_airport'] ?? ''),
-                            $departureDatetime,
-                            trim($_POST['arrival_datetime'] ?? ''),
-                            (int)($_POST['duration_minutes'] ?? 0),
-                            (int)($_POST['stops'] ?? 0),
-                            trim($_POST['cabin_class'] ?? 'Economy'),
-                            (float)($_POST['price_nzd'] ?? 0),
-                        ]);
-                        $saveStatus['success'] = 'Flight added to your trip.';
-                    }
-                } elseif ($itemType === 'accommodation') {
-                    $accommodationName = trim($_POST['accommodation_name'] ?? '');
-                    $plannedCheckIn = trim($_POST['planned_check_in'] ?? '');
-                    $plannedCheckOut = trim($_POST['planned_check_out'] ?? '');
-                    $plannedCheckIn = $plannedCheckIn !== '' ? $plannedCheckIn : null;
-                    $plannedCheckOut = $plannedCheckOut !== '' ? $plannedCheckOut : null;
-
-                    // --- Duplicate check: same accommodation name + check-in/check-out already saved to this trip ---
-                    $dupHotelStmt = $pdo->prepare("SELECT id FROM saved_accommodations WHERE user_id = ? AND trip_id = ? AND name = ? AND planned_check_in <=> ? AND planned_check_out <=> ?");
-                    $dupHotelStmt->execute([$_SESSION['user_id'], $tripId, $accommodationName, $plannedCheckIn, $plannedCheckOut]);
-
-                    if ($dupHotelStmt->fetch()) {
-                        $saveStatus['error'] = 'This accommodation has already been added to this trip.';
-                    } else {
-                        $stmt = $pdo->prepare("INSERT INTO saved_accommodations (user_id, trip_id, name, type, city, country, address, planned_check_in, planned_check_out, check_in_time, check_out_time, price_per_night_nzd, rating, amenities) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                        $stmt->execute([
-                            $_SESSION['user_id'],
-                            $tripId,
-                            $accommodationName,
-                            trim($_POST['accommodation_type'] ?? ''),
-                            trim($_POST['accommodation_city'] ?? ''),
-                            trim($_POST['accommodation_country'] ?? ''),
-                            trim($_POST['accommodation_address'] ?? ''),
-                            $plannedCheckIn,
-                            $plannedCheckOut,
-                            trim($_POST['check_in_time'] ?? '14:00:00'),
-                            trim($_POST['check_out_time'] ?? '11:00:00'),
-                            (float)($_POST['price_per_night_nzd'] ?? 0),
-                            (float)($_POST['rating'] ?? 0),
-                            trim($_POST['amenities'] ?? ''),
-                        ]);
-                        $saveStatus['success'] = 'Accommodation added to your trip.';
-                    }
-                } elseif ($itemType === 'activity') {
-                    $activityName = trim($_POST['activity_name'] ?? '');
-                    $activityCity = trim($_POST['activity_city'] ?? '');
-                    $activityDate = trim($_POST['activity_date_value'] ?? $_POST['activity_date'] ?? '');
-
-                    // --- Duplicate check: same activity name + city + date already saved to this trip ---
-                    $dupActivityStmt = $pdo->prepare("SELECT id FROM saved_activities WHERE user_id = ? AND trip_id = ? AND name = ? AND city = ? AND activity_date = ?");
-                    $dupActivityStmt->execute([$_SESSION['user_id'], $tripId, $activityName, $activityCity, $activityDate]);
-
-                    if ($dupActivityStmt->fetch()) {
-                        $saveStatus['error'] = 'This activity has already been added to this trip.';
-                    } else {
-                        $stmt = $pdo->prepare("INSERT INTO saved_activities (user_id, trip_id, name, city, category, activity_date, cost_nzd, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                        $stmt->execute([
-                            $_SESSION['user_id'],
-                            $tripId,
-                            $activityName,
-                            $activityCity,
-                            trim($_POST['activity_category'] ?? ''),
-                            $activityDate,
-                            (float)($_POST['activity_cost_nzd'] ?? 0),
-                            trim($_POST['activity_description'] ?? ''),
-                        ]);
-                        $saveStatus['success'] = 'Activity added to your trip.';
-                    }
-                } else {
-                    $saveStatus['error'] = 'Unable to save that item.';
-                }
-            } catch (PDOException $e) {
-                error_log('Save trip item error: ' . $e->getMessage());
-                $saveStatus['error'] = 'Unable to save that item right now.';
+            if ($createNewTrip) {
+                $createTripStmt = $pdo->prepare("INSERT INTO trips (user_id, title, destination, start_date, end_date, notes, travel_style) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $createTripStmt->execute([
+                    $_SESSION['user_id'],
+                    $newTripValues[0],
+                    $newTripValues[1],
+                    $newTripValues[2],
+                    $newTripValues[3],
+                    $newTripValues[4],
+                    '',
+                ]);
+                $tripId = (int)$pdo->lastInsertId();
             }
+
+            $tripOwnershipStmt = $pdo->prepare("SELECT id FROM trips WHERE id = ? AND user_id = ?");
+            $tripOwnershipStmt->execute([$tripId, $_SESSION['user_id']]);
+
+            if (!$tripOwnershipStmt->fetch()) {
+                $saveStatus['error'] = 'That trip could not be found.';
+            } elseif ($itemType === 'flight') {
+                $airlineValue = trim($_POST['airline_value'] ?? $_POST['airline'] ?? '');
+                $flightNumber = trim($_POST['flight_number'] ?? '');
+                $departureDatetime = trim($_POST['departure_datetime'] ?? '');
+
+                // --- Duplicate check: same airline + flight number + departure time already saved to this trip ---
+                $dupFlightStmt = $pdo->prepare("SELECT id FROM saved_flights WHERE user_id = ? AND trip_id = ? AND airline = ? AND flight_number = ? AND departure_datetime = ?");
+                $dupFlightStmt->execute([$_SESSION['user_id'], $tripId, $airlineValue, $flightNumber, $departureDatetime]);
+
+                if ($dupFlightStmt->fetch()) {
+                    $saveStatus['error'] = 'This flight has already been added to this trip.';
+                } else {
+                    $stmt = $pdo->prepare("INSERT INTO saved_flights (user_id, trip_id, airline, flight_number, departure_city, arrival_city, departure_airport, arrival_airport, departure_datetime, arrival_datetime, duration_minutes, stops, cabin_class, price_nzd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([
+                        $_SESSION['user_id'],
+                        $tripId,
+                        $airlineValue,
+                        $flightNumber,
+                        trim($_POST['departure_city'] ?? ''),
+                        trim($_POST['arrival_city'] ?? ''),
+                        trim($_POST['departure_airport'] ?? ''),
+                        trim($_POST['arrival_airport'] ?? ''),
+                        $departureDatetime,
+                        trim($_POST['arrival_datetime'] ?? ''),
+                        (int)($_POST['duration_minutes'] ?? 0),
+                        (int)($_POST['stops'] ?? 0),
+                        trim($_POST['cabin_class'] ?? 'Economy'),
+                        (float)($_POST['price_nzd'] ?? 0),
+                    ]);
+                    $saveStatus['success'] = 'Flight added to your trip.';
+                }
+            } elseif ($itemType === 'accommodation') {
+                $accommodationName = trim($_POST['accommodation_name'] ?? '');
+                $plannedCheckIn = trim($_POST['planned_check_in'] ?? '');
+                $plannedCheckOut = trim($_POST['planned_check_out'] ?? '');
+                $plannedCheckIn = $plannedCheckIn !== '' ? $plannedCheckIn : null;
+                $plannedCheckOut = $plannedCheckOut !== '' ? $plannedCheckOut : null;
+
+                // --- Duplicate check: same accommodation name + check-in/check-out already saved to this trip ---
+                $dupHotelStmt = $pdo->prepare("SELECT id FROM saved_accommodations WHERE user_id = ? AND trip_id = ? AND name = ? AND planned_check_in <=> ? AND planned_check_out <=> ?");
+                $dupHotelStmt->execute([$_SESSION['user_id'], $tripId, $accommodationName, $plannedCheckIn, $plannedCheckOut]);
+
+                if ($dupHotelStmt->fetch()) {
+                    $saveStatus['error'] = 'This accommodation has already been added to this trip.';
+                } else {
+                    $stmt = $pdo->prepare("INSERT INTO saved_accommodations (user_id, trip_id, name, type, city, country, address, planned_check_in, planned_check_out, check_in_time, check_out_time, price_per_night_nzd, rating, amenities) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([
+                        $_SESSION['user_id'],
+                        $tripId,
+                        $accommodationName,
+                        trim($_POST['accommodation_type'] ?? ''),
+                        trim($_POST['accommodation_city'] ?? ''),
+                        trim($_POST['accommodation_country'] ?? ''),
+                        trim($_POST['accommodation_address'] ?? ''),
+                        $plannedCheckIn,
+                        $plannedCheckOut,
+                        trim($_POST['check_in_time'] ?? '14:00:00'),
+                        trim($_POST['check_out_time'] ?? '11:00:00'),
+                        (float)($_POST['price_per_night_nzd'] ?? 0),
+                        (float)($_POST['rating'] ?? 0),
+                        trim($_POST['amenities'] ?? ''),
+                    ]);
+                    $saveStatus['success'] = 'Accommodation added to your trip.';
+                }
+            } elseif ($itemType === 'activity') {
+                $activityName = trim($_POST['activity_name'] ?? '');
+                $activityCity = trim($_POST['activity_city'] ?? '');
+                $activityDate = trim($_POST['activity_date_value'] ?? $_POST['activity_date'] ?? '');
+
+                // --- Duplicate check: same activity name + city + date already saved to this trip ---
+                $dupActivityStmt = $pdo->prepare("SELECT id FROM saved_activities WHERE user_id = ? AND trip_id = ? AND name = ? AND city = ? AND activity_date = ?");
+                $dupActivityStmt->execute([$_SESSION['user_id'], $tripId, $activityName, $activityCity, $activityDate]);
+
+                if ($dupActivityStmt->fetch()) {
+                    $saveStatus['error'] = 'This activity has already been added to this trip.';
+                } else {
+                    $stmt = $pdo->prepare("INSERT INTO saved_activities (user_id, trip_id, name, city, category, activity_date, cost_nzd, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([
+                        $_SESSION['user_id'],
+                        $tripId,
+                        $activityName,
+                        $activityCity,
+                        trim($_POST['activity_category'] ?? ''),
+                        $activityDate,
+                        (float)($_POST['activity_cost_nzd'] ?? 0),
+                        trim($_POST['activity_description'] ?? ''),
+                    ]);
+                    $saveStatus['success'] = 'Activity added to your trip.';
+                }
+            }
+
+            if (empty($saveStatus['error'])) {
+                $pdo->commit();
+            } else {
+                $pdo->rollBack();
+            }
+        } catch (PDOException $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log('Save trip item error: ' . $e->getMessage());
+            $saveStatus['error'] = $createNewTrip
+                ? 'Unable to create the trip and save that item right now.'
+                : 'Unable to save that item right now.';
+        }
+    }
+
+    // Refresh the trip list so a newly created trip appears in the picker right away.
+    if ($createNewTrip && empty($saveStatus['error'])) {
+        try {
+            $tripStmt = $pdo->prepare("SELECT id, title, destination, start_date, end_date FROM trips WHERE user_id = ? ORDER BY start_date ASC, title ASC");
+            $tripStmt->execute([$_SESSION['user_id']]);
+            $userTrips = $tripStmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log('Trip lookup error: ' . $e->getMessage());
         }
     }
 }
@@ -411,6 +460,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                         <div class="accommodation-result-card draggable-item" draggable="true"
                     data-item-type="accommodation"
                     data-search-type="accommodation"
+                    data-destination="<?php echo htmlspecialchars($acc['city']); ?>"
                     data-accommodation-name="<?php echo htmlspecialchars($acc['name']); ?>"
                     data-accommodation-type="<?php echo htmlspecialchars($acc['type']); ?>"
                     data-accommodation-city="<?php echo htmlspecialchars($acc['city']); ?>"
@@ -464,6 +514,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                                     <button type="button" class="add-btn open-trip-modal-btn"
                                         data-item-type="accommodation"
                                         data-search-type="accommodation"
+                                        data-destination="<?php echo htmlspecialchars($acc['city']); ?>"
                                         data-accommodation-name="<?php echo htmlspecialchars($acc['name']); ?>"
                                         data-accommodation-type="<?php echo htmlspecialchars($acc['type']); ?>"
                                         data-accommodation-city="<?php echo htmlspecialchars($acc['city']); ?>"
@@ -490,6 +541,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                         <div class="activity-result-card draggable-item" draggable="true"
                         data-item-type="activity"
                         data-search-type="activities"
+                        data-destination="<?php echo htmlspecialchars($activity['city']); ?>"
                         data-activity-name="<?php echo htmlspecialchars($activity['activity_name']); ?>"
                         data-activity-city="<?php echo htmlspecialchars($activity['city']); ?>"
                         data-activity-category="<?php echo htmlspecialchars($activity['category']); ?>"
@@ -528,6 +580,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                             <button type="button" class="add-btn open-trip-modal-btn"
                                 data-item-type="activity"
                                 data-search-type="activities"
+                                data-destination="<?php echo htmlspecialchars($activity['city']); ?>"
                                 data-activity-name="<?php echo htmlspecialchars($activity['activity_name']); ?>"
                                 data-activity-city="<?php echo htmlspecialchars($activity['city']); ?>"
                                 data-activity-category="<?php echo htmlspecialchars($activity['category']); ?>"
@@ -549,8 +602,9 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                         <div class="flight-result-card draggable-item" draggable="true"
                             data-item-type="flight"
                             data-search-type="flights"
-                            data-departure-city="<?php echo htmlspecialchars($flightSearch['departure_city']); ?>"
-                            data-arrival-city="<?php echo htmlspecialchars($flightSearch['arrival_city']); ?>"
+                            data-destination="<?php echo htmlspecialchars($flight['arrival_city']); ?>"
+                            data-departure-city="<?php echo htmlspecialchars($flight['departure_city']); ?>"
+                            data-arrival-city="<?php echo htmlspecialchars($flight['arrival_city']); ?>"
                             data-airline="<?php echo htmlspecialchars($flightSearch['airline']); ?>"
                             data-departure-date="<?php echo htmlspecialchars($flightSearch['departure_date']); ?>"
                             data-return-date="<?php echo htmlspecialchars($flightSearch['return_date']); ?>"
@@ -605,8 +659,9 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                                 <button type="button" class="add-btn open-trip-modal-btn"
                                     data-item-type="flight"
                                     data-search-type="flights"
-                                    data-departure-city="<?php echo htmlspecialchars($flightSearch['departure_city']); ?>"
-                                    data-arrival-city="<?php echo htmlspecialchars($flightSearch['arrival_city']); ?>"
+                                    data-destination="<?php echo htmlspecialchars($flight['arrival_city']); ?>"
+                                    data-departure-city="<?php echo htmlspecialchars($flight['departure_city']); ?>"
+                                    data-arrival-city="<?php echo htmlspecialchars($flight['arrival_city']); ?>"
                                     data-airline="<?php echo htmlspecialchars($flightSearch['airline']); ?>"
                                     data-departure-date="<?php echo htmlspecialchars($flightSearch['departure_date']); ?>"
                                     data-return-date="<?php echo htmlspecialchars($flightSearch['return_date']); ?>"
@@ -661,6 +716,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                     <input type="hidden" name="trip_id" id="selected-trip-id" value="">
                     <input type="hidden" name="create_new_trip" id="create-new-trip-flag" value="0">
                     <input type="hidden" name="search_type">
+                    <input type="hidden" name="destination_hint">
                     <input type="hidden" name="departure_city">
                     <input type="hidden" name="arrival_city">
                     <input type="hidden" name="airline">
@@ -751,6 +807,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                     <input type="hidden" name="item_type">
                     <input type="hidden" name="create_new_trip" value="1">
                     <input type="hidden" name="search_type">
+                    <input type="hidden" name="destination_hint">
                     <input type="hidden" name="departure_city">
                     <input type="hidden" name="arrival_city">
                     <input type="hidden" name="airline">
@@ -903,9 +960,15 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
             createNewTripFlag.value = '0';
             document.querySelectorAll('.trip-card-selectable').forEach(option => option.classList.remove('active'));
 
+            const destination = getDragValue(button, 'destination')
+                || getDragValue(button, 'accommodationCity')
+                || getDragValue(button, 'activityCity')
+                || getDragValue(button, 'arrivalCity');
+
             const fieldMap = [
                 ['item_type', getDragValue(button, 'itemType')],
                 ['search_type', getDragValue(button, 'searchType')],
+                ['destination_hint', destination],
                 ['departure_city', getDragValue(button, 'departureCity')],
                 ['arrival_city', getDragValue(button, 'arrivalCity')],
                 ['airline', getDragValue(button, 'airline')],
@@ -960,11 +1023,38 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
 
             createTripModalForm.reset();
             copyHiddenFields(addTripModalForm, createTripModalForm);
+
+            // This modal always creates a brand-new trip. copyHiddenFields()
+            // above copies create_new_trip="0" over from the add-to-trip form,
+            // so force it back on here; otherwise the server treats the submit
+            // as "no trip chosen" and nothing (trip or item) gets saved.
+            const createNewTripField = createTripModalForm.querySelector('[name="create_new_trip"]');
+            if (createNewTripField) {
+                createNewTripField.value = '1';
+            }
+
+            // Auto-fill the destination from the dragged/selected item, without
+            // overwriting anything the user has already typed.
+            const destinationHint = addTripModalForm.querySelector('[name="destination_hint"]');
+            const newTripDestination = createTripModalForm.querySelector('[name="new_trip_destination"]');
+            if (destinationHint && newTripDestination && destinationHint.value && !newTripDestination.value) {
+                newTripDestination.value = destinationHint.value;
+            }
+
             addTripModal.style.display = 'none';
             addTripModal.setAttribute('aria-hidden', 'true');
             createTripModal.style.display = 'flex';
             createTripModal.setAttribute('aria-hidden', 'false');
         }
+
+        createTripModalForm.addEventListener('submit', function() {
+            // Keep the item payload in sync if the modal was opened directly from a drop.
+            copyHiddenFields(addTripModalForm, createTripModalForm);
+            const createNewTripField = createTripModalForm.querySelector('[name="create_new_trip"]');
+            if (createNewTripField) {
+                createNewTripField.value = '1';
+            }
+        });
 
         function closeAddTripModalHandler() {
             addTripModal.style.display = 'none';
@@ -1033,9 +1123,16 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                 if (!dragState.isDragging) {
                     return;
                 }
+                // Make sure the add-to-trip form carries the dragged item's
+                // data before we copy it across / submit it. The dragstart
+                // handler populates it via setTimeout, which is not guaranteed
+                // to have run by the time this drop fires.
+                if (dragState.sourceElement) {
+                    openAddTripModal(dragState.sourceElement);
+                }
+
                 if (this.classList.contains('create-trip-button')) {
                     openCreateTripModal();
-                    createTripModalForm.querySelector('[name="create_new_trip"]').value = '1';
                 } else {
                     document.querySelectorAll('.trip-card-selectable').forEach(option => option.classList.remove('active'));
                     this.classList.add('active');
