@@ -1341,6 +1341,223 @@ try {
     }
 
     tripDetailsContent.addEventListener('click', function(event) {
+
+        const button =
+            event.target.closest('.add-expense-btn');
+
+        if (!button) {
+            return;
+        }
+
+        const tripId =
+            button.getAttribute('data-trip-id');
+
+        showExpenseModal(tripId);
+    });
+
+    closeExpenseModal.addEventListener(
+        'click',
+        hideExpenseModal
+    );
+
+    cancelExpenseModal.addEventListener(
+        'click',
+        hideExpenseModal
+    );
+
+    expenseModal.addEventListener('click', function(event) {
+
+        if (event.target === expenseModal) {
+            hideExpenseModal();
+        }
+
+    });
+
+    expenseForm.addEventListener('submit', function(event) {
+
+        event.preventDefault();
+
+        const tripId =
+            expenseTripId.value;
+
+        const type =
+            expenseType.value;
+
+        const name =
+            expenseName.value.trim();
+
+        const cost =
+            Number(expenseCost.value);
+
+
+        if (!type) {
+            expenseFormError.textContent =
+                'Please choose an expense type.';
+            return;
+        }
+
+        if (!name) {
+            expenseFormError.textContent =
+                'Please enter an expense name.';
+            return;
+        }
+
+        if (!Number.isFinite(cost) || cost <= 0) {
+            expenseFormError.textContent =
+                'Please enter a valid cost.';
+            return;
+        }
+
+
+        if (!expensesByTrip[tripId]) {
+            expensesByTrip[tripId] = [];
+        }
+
+
+        const editId =
+            Number(expenseEditId.value);
+
+
+        if (editId) {
+
+            const existing =
+                expensesByTrip[tripId].find(function(expense) {
+                    return expense.id === editId;
+                });
+
+            if (existing) {
+                existing.type = type;
+                existing.name = name;
+                existing.cost = cost;
+            }
+
+        } else {
+
+            expensesByTrip[tripId].push({
+                id: nextExpenseId++,
+                type: type,
+                name: name,
+                cost: cost
+            });
+
+        }
+
+
+        renderExpenses(tripId);
+
+        hideExpenseModal();
+    });
+
+    function renderExpenses(tripId) {
+
+        const expenseList =
+            tripDetailsContent.querySelector(
+                `.expense-list[data-trip-id="${tripId}"]`
+            );
+
+        if (!expenseList) {
+            return;
+        }
+
+
+        const expenses =
+            expensesByTrip[tripId] || [];
+
+
+        if (expenses.length === 0) {
+
+            expenseList.innerHTML = `
+                <p class="expense-empty">
+                    No expenses added yet.
+                </p>
+            `;
+
+        } else {
+
+            expenseList.innerHTML =
+                expenses.map(function(expense) {
+
+                    return `
+                        <div
+                            class="expense-item"
+                            data-expense-id="${expense.id}">
+
+                            <div class="expense-item-main">
+
+                                <span class="expense-type">
+                                    ${escapeHTML(expense.type)}
+                                </span>
+
+                                <strong class="expense-name">
+                                    ${escapeHTML(expense.name)}
+                                </strong>
+
+                            </div>
+
+                            <div class="expense-item-right">
+
+                                <strong class="expense-cost">
+                                    NZD ${expense.cost.toFixed(2)}
+                                </strong>
+
+                                <div class="expense-actions">
+
+                                    <button
+                                        type="button"
+                                        class="expense-edit-btn"
+                                        data-trip-id="${tripId}"
+                                        data-expense-id="${expense.id}">
+                                        Edit
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="expense-delete-btn"
+                                        data-trip-id="${tripId}"
+                                        data-expense-id="${expense.id}">
+                                        Delete
+                                    </button>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+                    `;
+
+                }).join('');
+
+        }
+
+
+        const total =
+            expenses.reduce(function(sum, expense) {
+                return sum + expense.cost;
+            }, 0);
+
+
+        const totalDisplay =
+            tripDetailsContent.querySelector(
+                '.expense-total-value'
+            );
+
+        if (totalDisplay) {
+            totalDisplay.textContent =
+                total.toFixed(2);
+        }
+    }
+
+    function escapeHTML(value) {
+
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    tripDetailsContent.addEventListener('click', function(event) {
         const button = event.target.closest('.trip-quick-add-btn');
         if (!button) {
             return;
