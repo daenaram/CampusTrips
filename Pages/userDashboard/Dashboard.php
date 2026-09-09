@@ -179,6 +179,12 @@ try {
     $stmt->execute([$_SESSION['user_id']]);
     $trips = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    //To deleted completed trips from "Your Saved Trips" section, we filter out trips that have already ended.
+    $currentDate = date('Y-m-d');
+    $activeTrips = array_filter($trips, function ($trip) use ($currentDate) {
+        return $trip['end_date'] >= $currentDate;
+    });
+
     foreach ($trips as $trip) {
         $tripId = (int)$trip['id'];
         $tripDetails[$tripId] = [
@@ -387,7 +393,7 @@ try {
             </a>
         </div>
 
-        <?php if (count($trips) === 0): ?>
+        <?php if (count($activeTrips) === 0): ?>
             <div class="trip-card empty-trip-card">
                 <div class="trip-card-body">
                     <p>No saved trips yet.</p>
@@ -395,7 +401,7 @@ try {
                 </div>
             </div>
         <?php else: ?>
-            <?php foreach ($trips as $trip): ?>
+            <?php foreach ($activeTrips as $trip): ?>
                 <?php $tripId = (int)$trip['id']; ?>
                 <div class="trip-card saved-trip-card">
                     <div class="trip-card-title"><?php echo htmlspecialchars($trip['title']); ?></div>
