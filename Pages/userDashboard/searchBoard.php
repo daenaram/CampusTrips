@@ -960,10 +960,15 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
             createNewTripFlag.value = '0';
             document.querySelectorAll('.trip-card-selectable').forEach(option => option.classList.remove('active'));
 
+            const destination = getDragValue(button, 'destination')
+                || getDragValue(button, 'accommodationCity')
+                || getDragValue(button, 'activityCity')
+                || getDragValue(button, 'arrivalCity');
+
             const fieldMap = [
                 ['item_type', getDragValue(button, 'itemType')],
                 ['search_type', getDragValue(button, 'searchType')],
-                ['destination_hint', getDragValue(button, 'destination')],
+                ['destination_hint', destination],
                 ['departure_city', getDragValue(button, 'departureCity')],
                 ['arrival_city', getDragValue(button, 'arrivalCity')],
                 ['airline', getDragValue(button, 'airline')],

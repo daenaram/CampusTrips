@@ -20,6 +20,28 @@ function tripBelongsToUser(PDO $pdo, int $tripId, int $userId): bool
     return (bool) $stmt->fetch();
 }
 
+function postedPositiveInt(string $key): ?int
+{
+    $value = $_POST[$key] ?? null;
+    if (is_array($value) || $value === null || filter_var($value, FILTER_VALIDATE_INT) === false) {
+        return null;
+    }
+
+    $value = (int) $value;
+    return $value > 0 ? $value : null;
+}
+
+function postedNonNegativeFloat(string $key): ?float
+{
+    $value = $_POST[$key] ?? null;
+    if (is_array($value) || $value === null || !is_numeric($value)) {
+        return null;
+    }
+
+    $value = (float) $value;
+    return is_finite($value) && $value >= 0 ? $value : null;
+}
+
 /**
  * Builds the full budget summary for one trip:
  *  - auto totals from saved flights / accommodation / activities (already stored in NZD)
@@ -28,6 +50,11 @@ function tripBelongsToUser(PDO $pdo, int $tripId, int $userId): bool
  */
 function getTripBudgetSummary(PDO $pdo, int $tripId, int $userId): array
 {
+    $capStmt = $pdo->prepare("SELECT budget_cap FROM trips WHERE id = ? AND user_id = ?");
+    $capStmt->execute([$tripId, $userId]);
+    $budgetCapValue = $capStmt->fetchColumn();
+    $budgetCap = $budgetCapValue !== false && $budgetCapValue !== null ? (float) $budgetCapValue : null;
+
     // Flights (already stored in NZD)
     $stmt = $pdo->prepare("SELECT COALESCE(SUM(price_nzd), 0) AS total FROM saved_flights WHERE trip_id = ? AND user_id = ?");
     $stmt->execute([$tripId, $userId]);
@@ -87,6 +114,7 @@ function getTripBudgetSummary(PDO $pdo, int $tripId, int $userId): array
         'trip_id'         => $tripId,
         'category_totals' => $categoryTotals,
         'grand_total'     => round($grandTotal, 2),
+        'budget_cap'      => $budgetCap,
         'custom_items'    => $customItems,
     ];
 }
@@ -106,14 +134,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
     try {
         switch ($action) {
 
+            case 'set_budget_cap': {
+                $tripId = postedPositiveInt('trip_id');
+                $rawCap = trim($_POST['budget_cap'] ?? '');
+
+                if (!$tripId || !tripBelongsToUser($pdo, $tripId, $userId)) {
+                    $response['message'] = 'Trip not found.';
+                    break;
+                }
+                if ($rawCap !== '' && (!is_numeric($rawCap) || (float) $rawCap < 0)) {
+                    $response['message'] = 'Enter a valid budget cap of zero or more.';
+                    break;
+                }
+
+                $budgetCap = $rawCap === '' ? null : round((float) $rawCap, 2);
+                $stmt = $pdo->prepare("UPDATE trips SET budget_cap = ? WHERE id = ? AND user_id = ?");
+                $stmt->execute([$budgetCap, $tripId, $userId]);
+
+                $response['success'] = true;
+                $response['summary'] = getTripBudgetSummary($pdo, $tripId, $userId);
+                break;
+            }
+
             case 'add_item': {
-                $tripId   = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+                $tripId   = postedPositiveInt('trip_id');
                 $category = trim($_POST['category'] ?? '');
                 $itemName = trim($_POST['item_name'] ?? '');
-                $amount   = filter_input(INPUT_POST, 'amount', FILTER_VALIDATE_FLOAT);
+                $amount   = postedNonNegativeFloat('amount');
                 $currency = strtoupper(trim($_POST['currency'] ?? 'NZD'));
 
-                if (!$tripId || $category === '' || $itemName === '' || $amount === false || $amount === null || $amount < 0) {
+                if (!$tripId || $category === '' || $itemName === '' || $amount === null) {
                     $response['message'] = 'Please fill in all budget item fields with valid values.';
                     break;
                 }
@@ -140,14 +190,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
             }
 
             case 'update_item': {
-                $itemId   = filter_input(INPUT_POST, 'item_id', FILTER_VALIDATE_INT);
-                $tripId   = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+                $itemId   = postedPositiveInt('item_id');
+                $tripId   = postedPositiveInt('trip_id');
                 $category = trim($_POST['category'] ?? '');
                 $itemName = trim($_POST['item_name'] ?? '');
-                $amount   = filter_input(INPUT_POST, 'amount', FILTER_VALIDATE_FLOAT);
+                $amount   = postedNonNegativeFloat('amount');
                 $currency = strtoupper(trim($_POST['currency'] ?? 'NZD'));
 
-                if (!$itemId || !$tripId || $category === '' || $itemName === '' || $amount === false || $amount === null || $amount < 0) {
+                if (!$itemId || !$tripId || $category === '' || $itemName === '' || $amount === null) {
                     $response['message'] = 'Please fill in all budget item fields with valid values.';
                     break;
                 }
@@ -175,8 +225,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
             }
 
             case 'delete_item': {
-                $itemId = filter_input(INPUT_POST, 'item_id', FILTER_VALIDATE_INT);
-                $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+                $itemId = postedPositiveInt('item_id');
+                $tripId = postedPositiveInt('trip_id');
 
                 if (!$itemId || !$tripId) {
                     $response['message'] = 'Invalid item.';
@@ -196,7 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
             }
 
             case 'get_summary': {
-                $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+                $tripId = postedPositiveInt('trip_id');
 
                 if (!$tripId || !tripBelongsToUser($pdo, $tripId, $userId)) {
                     $response['message'] = 'Trip not found.';

@@ -46,6 +46,8 @@
 
         const categoryTotals = summary.category_totals || {};
         const grandTotal = summary.grand_total || 0;
+        const hasBudgetCap = summary.budget_cap !== null && summary.budget_cap !== undefined;
+        const budgetCap = hasBudgetCap ? Number(summary.budget_cap) : null;
         const customItems = summary.custom_items || [];
 
         // Category breakdown bars (percentage of grand total, min 0 avoids div by zero)
@@ -94,6 +96,24 @@
                     <span class="budget-grand-total-value" id="budgetGrandTotal">${formatCurrency(grandTotal)}</span>
                 </div>
 
+                ${hasBudgetCap && grandTotal > budgetCap ? `
+                    <div class="budget-cap-warning" role="alert">
+                        <strong>Spending exceeds the set budget cap.</strong>
+                        <span>You are ${formatCurrency(grandTotal - budgetCap)} over your ${formatCurrency(budgetCap)} cap. You can continue planning.</span>
+                    </div>` : ''}
+
+                <form id="budgetCapForm" class="budget-cap-form">
+                    <input type="hidden" name="trip_id" value="${tripId}">
+                    <label for="budgetCapInput">Budget cap</label>
+                    <div class="budget-cap-controls">
+                        <input id="budgetCapInput" name="budget_cap" type="number" min="0" step="0.01" placeholder="No cap" value="${hasBudgetCap ? budgetCap.toFixed(2) : ''}">
+                        <button type="submit" class="budget-cap-save-btn">${hasBudgetCap ? 'Update cap' : 'Set cap'}</button>
+                        ${hasBudgetCap ? '<button type="button" class="budget-cap-remove-btn" id="budgetCapRemoveBtn">Remove cap</button>' : ''}
+                    </div>
+                    <p class="budget-cap-help">Leave the field empty to remove the cap.</p>
+                    <p class="budget-form-error" id="budgetCapError"></p>
+                </form>
+
                 <div class="budget-breakdown" id="budgetBreakdown">
                     ${breakdownRows}
                 </div>
@@ -137,6 +157,7 @@
 
         attachItemEvents(tripId);
         attachFormEvents(tripId);
+        attachCapEvents(tripId);
     }
 
     function escapeHtml(str) {
@@ -163,6 +184,35 @@
                 }
             });
         });
+    }
+
+    function attachCapEvents(tripId) {
+        const form = document.getElementById('budgetCapForm');
+        if (!form) return;
+
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            const errorEl = document.getElementById('budgetCapError');
+            errorEl.textContent = '';
+            const formData = new FormData(form);
+            formData.append('ajax_action', 'set_budget_cap');
+            postToBudgetApi(formData, tripId, function (data) {
+                if (!data.success) {
+                    errorEl.textContent = data.message || 'Unable to update the budget cap.';
+                }
+            });
+        });
+
+        const removeButton = document.getElementById('budgetCapRemoveBtn');
+        if (removeButton) {
+            removeButton.addEventListener('click', function () {
+                const formData = new FormData();
+                formData.append('ajax_action', 'set_budget_cap');
+                formData.append('trip_id', tripId);
+                formData.append('budget_cap', '');
+                postToBudgetApi(formData, tripId);
+            });
+        }
     }
 
     function attachItemEvents(tripId) {

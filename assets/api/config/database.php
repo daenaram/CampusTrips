@@ -49,6 +49,11 @@ try {
         $pdo->exec("ALTER TABLE trips ADD COLUMN notes TEXT AFTER end_date");
     }
 
+    $tripBudgetCapColumn = $pdo->query("SHOW COLUMNS FROM trips LIKE 'budget_cap'")->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($tripBudgetCapColumn)) {
+        $pdo->exec("ALTER TABLE trips ADD COLUMN budget_cap DECIMAL(10,2) NULL AFTER notes");
+    }
+
     $tripGroupSizeColumn = $pdo->query("SHOW COLUMNS FROM trips LIKE 'group_size'")->fetchAll(PDO::FETCH_ASSOC);
     if (!empty($tripGroupSizeColumn)) {
         $pdo->exec("ALTER TABLE trips DROP COLUMN group_size");
@@ -163,6 +168,21 @@ try {
             $pdo->exec("ALTER TABLE `$table` ENGINE=InnoDB");
         }
     }
+
+    // Custom budget entries are queried by the budget page and dashboard.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS budget_items (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        user_id    INT NOT NULL,
+        trip_id    INT NOT NULL,
+        category   VARCHAR(50) NOT NULL,
+        item_name  VARCHAR(150) NOT NULL,
+        amount     DECIMAL(10,2) NOT NULL,
+        currency   VARCHAR(10) NOT NULL,
+        amount_nzd DECIMAL(10,2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX (user_id),
+        INDEX (trip_id)
+    ) ENGINE=InnoDB");
 
     // Activities
     $pdo->exec("CREATE TABLE IF NOT EXISTS activities (
