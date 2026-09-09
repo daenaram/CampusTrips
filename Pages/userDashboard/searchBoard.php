@@ -30,7 +30,7 @@ $userTrips = [];
 $saveStatus = ['success' => '', 'error' => ''];
 
 try {
-    $tripStmt = $pdo->prepare("SELECT id, title, destination, start_date, end_date FROM trips WHERE user_id = ? ORDER BY start_date ASC, title ASC");
+    $tripStmt = $pdo->prepare("SELECT id, title, destination, start_date, end_date FROM trips WHERE user_id = ? AND end_date >= CURDATE() ORDER BY start_date ASC, title ASC");
     $tripStmt->execute([$_SESSION['user_id']]);
     $userTrips = $tripStmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_item'])) {
                 $createTripStmt->execute([$_SESSION['user_id'], $newTripTitle, $newTripDestination, $newTripStartDate, $newTripEndDate, $newTripNotes, '']);
                 $tripId = (int)$pdo->lastInsertId();
 
-                $tripStmt = $pdo->prepare("SELECT id, title FROM trips WHERE user_id = ? ORDER BY start_date ASC, title ASC");
+                $tripStmt = $pdo->prepare("SELECT id, title FROM trips WHERE user_id = ? AND end_date >= CURDATE() ORDER BY start_date ASC, title ASC");
                 $tripStmt->execute([$_SESSION['user_id']]);
                 $userTrips = $tripStmt->fetchAll(PDO::FETCH_ASSOC);
             } catch (PDOException $e) {
