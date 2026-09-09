@@ -778,3 +778,46 @@ body {
 .expense-delete-btn {
     color: #c00;
 }
+
+.activity-date-setting {
+    display: grid;
+    grid-template-columns: 105px 1fr;
+    align-items: center;
+    margin-top: 8px;
+    column-gap: 0;
+}
+
+.activity-date-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    min-width: 0;
+}
+
+.activity-date-form input[type="date"] {
+    width: 110px;
+    box-sizing: border-box;
+
+    padding: 5px 7px;
+    border: 1px solid #d0d5dd;
+    border-radius: 7px;
+
+    font-size: 12px;
+    background: white;
+}
+
+.save-activity-date-btn {
+    padding: 6px 9px;
+    border: none;
+    border-radius: 7px;
+
+    background: #087fd3;
+    color: white;
+
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+

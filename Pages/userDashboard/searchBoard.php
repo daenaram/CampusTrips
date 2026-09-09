@@ -228,27 +228,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_item'])) {
             } elseif ($itemType === 'activity') {
                 $activityName = trim($_POST['activity_name'] ?? '');
                 $activityCity = trim($_POST['activity_city'] ?? '');
-                $activityDate = trim($_POST['activity_date_value'] ?? $_POST['activity_date'] ?? '');
+                $activityDate = null;
+                // trim($_POST['activity_date_value'] ?? $_POST['activity_date'] ?? '');
 
-                // --- Duplicate check: same activity name + city + date already saved to this trip ---
-                $dupActivityStmt = $pdo->prepare("SELECT id FROM saved_activities WHERE user_id = ? AND trip_id = ? AND name = ? AND city = ? AND activity_date = ?");
-                $dupActivityStmt->execute([$_SESSION['user_id'], $tripId, $activityName, $activityCity, $activityDate]);
+                // --- Duplicate check: same activity name + city already saved to this trip ---
+                $dupActivityStmt = $pdo->prepare("
+                    SELECT id
+                    FROM saved_activities
+                    WHERE user_id = ?
+                    AND trip_id = ?
+                    AND name = ?
+                    AND city = ?
+                ");
+
+                $dupActivityStmt->execute([
+                    $_SESSION['user_id'],
+                    $tripId,
+                    $activityName,
+                    $activityCity
+                ]);
 
                 if ($dupActivityStmt->fetch()) {
-                    $saveStatus['error'] = 'This activity has already been added to this trip.';
+
+                    $saveStatus['error'] =
+                        'This activity has already been added to this trip.';
+
                 } else {
-                    $stmt = $pdo->prepare("INSERT INTO saved_activities (user_id, trip_id, name, city, category, activity_date, cost_nzd, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+
+                    $stmt = $pdo->prepare("
+                        INSERT INTO saved_activities
+                        (
+                            user_id,
+                            trip_id,
+                            name,
+                            city,
+                            category,
+                            activity_date,
+                            cost_nzd,
+                            description
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+
                     $stmt->execute([
                         $_SESSION['user_id'],
                         $tripId,
                         $activityName,
                         $activityCity,
                         trim($_POST['activity_category'] ?? ''),
-                        $activityDate,
+                        $activityDate, // NULL
                         (float)($_POST['activity_cost_nzd'] ?? 0),
-                        trim($_POST['activity_description'] ?? ''),
+                        trim($_POST['activity_description'] ?? '')
                     ]);
-                    $saveStatus['success'] = 'Activity added to your trip.';
+
+                    $saveStatus['success'] =
+                        'Activity added to your trip.';
                 }
             }
 
@@ -426,14 +460,14 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
             <input type="text" name="accommodation_city" placeholder="City..." value="<?php echo htmlspecialchars($hotelSearch['accommodation_city']); ?>">
             <button type="submit" class="search-btn">Search</button>
         </form>
-
+<!-- <input type="date" name="activity_date" value="<?php echo htmlspecialchars($activitySearch['activity_date']); ?>"> -->
         <!-- Activity search form -->
         <form method="POST" action="/AUT-Web-Based-Travel-Planner/Pages/userDashboard/searchBoard.php" class="search-panel <?php echo $activeTab === 'activities' ? 'active-panel' : ''; ?>" id="activities">
             <input type="hidden" name="search_type" value="activities">
             <input type="text" name="keyword" placeholder="Search activities..." value="<?php echo htmlspecialchars($activitySearch['keyword']); ?>">
             <input type="text" name="city" placeholder="City/Country" value="<?php echo htmlspecialchars($activitySearch['city']); ?>">
             <input type="text" name="category" placeholder="Category" value="<?php echo htmlspecialchars($activitySearch['category']); ?>">
-            <input type="date" name="activity_date" value="<?php echo htmlspecialchars($activitySearch['activity_date']); ?>">
+            
             <button type="submit" class="search-btn">Search</button>
         </form>
 
@@ -536,6 +570,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
             <?php if (count($activities) === 0): ?>
                 <p>No activities found for the selected criteria.</p>
             <?php else: ?>
+                <!-- data-activity-date-value="<?php echo htmlspecialchars($activity['raw_activity_date'] ?? $activity['activity_date']); ?>" -->
                 <div class="activity-results-container">
                     <?php foreach ($activities as $activity): ?>
                         <div class="activity-result-card draggable-item" draggable="true"
@@ -545,7 +580,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                         data-activity-name="<?php echo htmlspecialchars($activity['activity_name']); ?>"
                         data-activity-city="<?php echo htmlspecialchars($activity['city']); ?>"
                         data-activity-category="<?php echo htmlspecialchars($activity['category']); ?>"
-                        data-activity-date-value="<?php echo htmlspecialchars($activity['raw_activity_date'] ?? $activity['activity_date']); ?>"
+                        
                         data-activity-cost-nzd="<?php echo htmlspecialchars($activity['cost_nzd']); ?>"
                         data-activity-description="<?php echo htmlspecialchars($activity['description']); ?>"
                     >
@@ -562,9 +597,9 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                                 <div class="activity-location">
                                     <?php echo htmlspecialchars($activity['city']); ?>, <?php echo htmlspecialchars($activity['country']); ?>
                                 </div>
-                                <div class="activity-details">
+                                <!-- <div class="activity-details">
                                     <span><strong>Date:</strong> <?php echo date('d F Y', strtotime($activity['activity_date'])); ?></span>
-                                </div>
+                                </div> -->
                                 <p class="activity-description">
                                 <?php echo htmlspecialchars($activity['description']); ?>
                                 </p>
@@ -576,7 +611,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                                     NZD <?php echo htmlspecialchars(number_format($activity['cost_nzd'], 0)); ?>
                                 </span>
                             </div>
-
+<!-- data-activity-date-value="<?php echo htmlspecialchars($activity['activity_date']); ?>" -->
                             <button type="button" class="add-btn open-trip-modal-btn"
                                 data-item-type="activity"
                                 data-search-type="activities"
@@ -584,7 +619,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                                 data-activity-name="<?php echo htmlspecialchars($activity['activity_name']); ?>"
                                 data-activity-city="<?php echo htmlspecialchars($activity['city']); ?>"
                                 data-activity-category="<?php echo htmlspecialchars($activity['category']); ?>"
-                                data-activity-date-value="<?php echo htmlspecialchars($activity['activity_date']); ?>"
+                                
                                 data-activity-cost-nzd="<?php echo htmlspecialchars($activity['cost_nzd']); ?>"
                                 data-activity-description="<?php echo htmlspecialchars($activity['description']); ?>"
                             >Add to Trip</button>
@@ -709,6 +744,8 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                 <h3>Add to trip</h3>
                 <button type="button" class="modal-close" id="close-add-trip-modal">×</button>
             </div>
+            <!-- <input type="hidden" name="activity_date">
+                    <input type="hidden" name="activity_date_value"> -->
             <div class="modal-body">
                 <form method="POST" id="add-trip-modal-form" class="add-trip-modal-form">
                     <input type="hidden" name="save_trip_item" value="1">
@@ -747,8 +784,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                     <input type="hidden" name="activity_name">
                     <input type="hidden" name="activity_city">
                     <input type="hidden" name="activity_category">
-                    <input type="hidden" name="activity_date">
-                    <input type="hidden" name="activity_date_value">
+                    
                     <input type="hidden" name="activity_cost_nzd">
                     <input type="hidden" name="activity_description">
 
@@ -794,7 +830,8 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
             </div>
         </div>
     </div>
-
+<!-- <input type="hidden" name="activity_date">
+                    <input type="hidden" name="activity_date_value"> -->
     <div id="create-trip-modal" class="modal-backdrop" aria-hidden="true">
         <div class="modal-window add-trip-window">
             <div class="modal-header">
@@ -838,8 +875,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                     <input type="hidden" name="activity_name">
                     <input type="hidden" name="activity_city">
                     <input type="hidden" name="activity_category">
-                    <input type="hidden" name="activity_date">
-                    <input type="hidden" name="activity_date_value">
+                    
                     <input type="hidden" name="activity_cost_nzd">
                     <input type="hidden" name="activity_description">
 

@@ -146,6 +146,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_trip'])) {
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_activity_date'])) {
+
+    $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+    $activityId = filter_input(INPUT_POST, 'activity_id', FILTER_VALIDATE_INT);
+    $activityDate = trim($_POST['activity_date'] ?? '');
+
+    if (!$tripId || !$activityId || $activityDate === '') {
+        $errors[] = 'Please choose a valid activity date.';
+    } else {
+        try {
+
+            // Get the trip's valid date range
+            $tripDateStmt = $pdo->prepare("
+                SELECT start_date, end_date
+                FROM trips
+                WHERE id = ? AND user_id = ?
+            ");
+
+            $tripDateStmt->execute([
+                $tripId,
+                $_SESSION['user_id']
+            ]);
+
+            $selectedTrip = $tripDateStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$selectedTrip) {
+                $errors[] = 'Trip could not be found.';
+
+            } elseif (
+                $activityDate < $selectedTrip['start_date'] ||
+                $activityDate > $selectedTrip['end_date']
+            ) {
+                $errors[] = 'Activity date must be within the trip dates.';
+
+            } else {
+
+                $updateStmt = $pdo->prepare("
+                    UPDATE saved_activities
+                    SET activity_date = ?
+                    WHERE id = ?
+                    AND trip_id = ?
+                    AND user_id = ?
+                ");
+
+                $updateStmt->execute([
+                    $activityDate,
+                    $activityId,
+                    $tripId,
+                    $_SESSION['user_id']
+                ]);
+
+                header('Location: ' . $_SERVER['REQUEST_URI']);
+                exit();
+            }
+
+        } catch (PDOException $e) {
+            error_log('Activity date update error: ' . $e->getMessage());
+            $errors[] = 'Unable to update activity date.';
+        }
+    }
+}
+
 // Handle saved item deletion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_saved_item'])) {
     $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
@@ -795,7 +857,45 @@ try {
                                         <div class="saved-item-meta">
                                             <span><strong>Category:</strong> <?php echo htmlspecialchars($attraction['category']); ?></span>
                                             <span><strong>Location:</strong> <?php echo htmlspecialchars($attraction['city']); ?></span>
-                                            <span><strong>Date:</strong> <?php echo htmlspecialchars($attraction['activity_date'] ? date('d M Y', strtotime($attraction['activity_date'])) : 'TBD'); ?></span>
+                                            <!-- <span><strong>Date:</strong> <?php echo htmlspecialchars($attraction['activity_date'] ? date('d M Y', strtotime($attraction['activity_date'])) : 'TBD'); ?></span> -->
+                                             <div class="activity-date-setting">
+
+                                                <strong>Date:</strong>
+
+                                                <form method="POST" class="activity-date-form">
+
+                                                    <input
+                                                        type="hidden"
+                                                        name="trip_id"
+                                                        value="<?php echo $tripId; ?>"
+                                                    >
+
+                                                    <input
+                                                        type="hidden"
+                                                        name="activity_id"
+                                                        value="<?php echo (int)$attraction['id']; ?>"
+                                                    >
+
+                                                    <input
+                                                        type="date"
+                                                        name="activity_date"
+                                                        value="<?php echo htmlspecialchars($attraction['activity_date'] ?? ''); ?>"
+                                                        min="<?php echo htmlspecialchars($trip['start_date']); ?>"
+                                                        max="<?php echo htmlspecialchars($trip['end_date']); ?>"
+                                                        required
+                                                    >
+
+                                                    <button
+                                                        type="submit"
+                                                        name="save_activity_date"
+                                                        class="save-activity-date-btn"
+                                                    >
+                                                        Save
+                                                    </button>
+
+                                                </form>
+
+                                            </div>
                                             <span><strong>Cost:</strong> NZD <?php echo htmlspecialchars(number_format($attraction['cost_nzd'], 0)); ?></span>
                                         </div>
                                         <p class="saved-item-description"><?php echo htmlspecialchars($attraction['description']); ?></p>
