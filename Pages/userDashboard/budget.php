@@ -274,7 +274,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
 
 $trips = [];
 try {
-    $stmt = $pdo->prepare("SELECT id, title, destination, start_date, end_date FROM trips WHERE user_id = ? ORDER BY start_date ASC");
+    $stmt = $pdo->prepare("SELECT id, title, destination, start_date, end_date FROM trips WHERE user_id = ? AND end_date >= CURDATE() ORDER BY start_date ASC");
     $stmt->execute([$userId]);
     $trips = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {

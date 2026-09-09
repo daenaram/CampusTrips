@@ -304,6 +304,7 @@ try {
                 Budget
             </button>
         </li>
+
         <li>
             <button type="button" onclick="location.href='settings.php'">
                 Settings
@@ -467,7 +468,7 @@ try {
                 <?php $tripId = (int)$trip['id']; ?>
                 <?php
                 $currentDate = date("Y-m-d");
-                    if($trip['end_date'] < $currentDate) {
+                    if($trip['end_date'] <= $currentDate) {
                     continue;
                     }
                 $tripId = (int) $trip['id'];

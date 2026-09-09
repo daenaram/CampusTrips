@@ -22,8 +22,21 @@ const FX_CACHE_TTL_HOURS = 12;
 // underlying central bank sources).
 if (!isset($GLOBALS['SUPPORTED_CURRENCIES'])) {
     $GLOBALS['SUPPORTED_CURRENCIES'] = [
-        'NZD', 'USD', 'AUD', 'GBP', 'EUR', 'JPY', 'SGD',
-        'CAD', 'CNY', 'HKD', 'THB', 'INR', 'KRW', 'CHF', 'ZAR',
+        'NZD',
+        'USD',
+        'AUD',
+        'GBP',
+        'EUR',
+        'JPY',
+        'SGD',
+        'CAD',
+        'CNY',
+        'HKD',
+        'THB',
+        'INR',
+        'KRW',
+        'CHF',
+        'ZAR',
     ];
 }
 
@@ -67,7 +80,8 @@ function isCurrencySupported(string $currency): bool
 }
 
 //Fetches the exchange rate from live list of currencies Frankfurter API provides. Returns null if the currency is not supported or if the API call fails.
-function getLiveSupportCurrencies(): ?array{
+function getLiveSupportCurrencies(): ?array
+{
     $raw = @file_get_contents(FX_API_BASE . '/currencies');
     if ($raw === false) {
         return $GLOBALS['SUPPORTED_CURRENCIES'];
@@ -80,7 +94,7 @@ function getLiveSupportCurrencies(): ?array{
 
     $live = array_values(array_intersect($GLOBALS['SUPPORTED_CURRENCIES'], array_keys($all)));
     return !empty($live) ? $live : $GLOBALS['SUPPORTED_CURRENCIES'];
-    
+
 }
 
 /**
@@ -101,9 +115,9 @@ function fetchRateFromFrankfurter(string $currency): ?float
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 5,
+            CURLOPT_TIMEOUT => 5,
             CURLOPT_CONNECTTIMEOUT => 3,
-            CURLOPT_HTTPHEADER     => ['Accept: application/json'],
+            CURLOPT_HTTPHEADER => ['Accept: application/json'],
         ]);
         $raw = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -138,11 +152,11 @@ function fetchRateFromFrankfurter(string $currency): ?float
 /**Refreshes the supported currencies rates.
  * This function fetches the latest exchange rates for all supported currencies from the Frankfurter API and updates the local cache in the database. It is intended to be run periodically (e.g., via a cron job) to ensure that the cached rates remain up-to-date.
  */
-function refreshAllFxRates(PDO $pdo): bool 
+function refreshAllFxRates(PDO $pdo): bool
 {
     $currencies = array_values(array_diff($GLOBALS['SUPPORTED_CURRENCIES'], ['NZD'])); // Exclude NZD since its rate is always 1
     if (empty($currencies)) {
-        return true; 
+        return true;
     }
 
     $symbols = implode(',', $currencies);
@@ -153,9 +167,9 @@ function refreshAllFxRates(PDO $pdo): bool
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 8,
+            CURLOPT_TIMEOUT => 8,
             CURLOPT_CONNECTTIMEOUT => 3,
-            CURLOPT_HTTPHEADER     => ['Accept: application/json'],
+            CURLOPT_HTTPHEADER => ['Accept: application/json'],
         ]);
         $raw = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -214,9 +228,15 @@ function refreshAllFxRates(PDO $pdo): bool
  */
 function getFxRateToNZD(PDO $pdo, string $currency): float
 {
+    static $requestedCache = [];
+
     $currency = strtoupper(trim($currency));
     if ($currency === 'NZD') {
         return 1.0;
+    }
+
+    if (isset($requestedCache[$currency])) {
+        return $requestedCache[$currency];
     }
 
     $cached = null;
@@ -266,5 +286,44 @@ function getFxRateToNZD(PDO $pdo, string $currency): float
 function convertToNZD(PDO $pdo, float $amount, string $currency): float
 {
     $rate = getFxRateToNZD($pdo, $currency);
+    if ($rate <= 0) {
+        error_log("Invalid FX rate for $currency: $rate. Returning original amount.");
+        $rate = 1.0; // Fallback to 1:1 if rate is invalid
+    }
     return round($amount * $rate, 2);
+}
+
+//convert an amount in NZD to selected currency
+function convertFromNZD(PDO $pdo, float $amountNZD, string $selectedCurrency): float
+{
+    $selectedCurrency = strtoupper(trim($selectedCurrency));
+    if($selectedCurrency === 'NZD') {
+        return round($amountNZD, 2);
+    }
+
+    $rateToNZD = getFxRateToNZD($pdo, $selectedCurrency);
+    if ($rateToNZD <= 0) {
+        error_log("Invalid FX rate for $selectedCurrency: $rateToNZD. Returning original amount.");
+        return round($amountNZD, 2); // Fallback to 1:1 if rate is invalid
+    }
+    return round($amountNZD / $rateToNZD, 2);
+}
+
+//currency that has no zero decimal places, e.g. JPY, KRW. This is used to determine whether to round to 0 or 2 decimal places when displaying amounts in the budget form.
+if (!isset($GLOBALS['ZERO_DECIMAL_CURRENCIES'])) {
+    $GLOBALS['ZERO_DECIMAL_CURRENCIES'] = ['KRW', 'JPY'];
+}
+
+//convert nzd to selected currency and format the amount with the correct number of decimal places based on the currency's characteristics.
+function displayAmountInNZD(PDO $pdo, float $amountNZD): string
+{
+    $currency = $_SESSION['currency'] ?? 'NZD';
+    if(!isCurrencySupported($currency)) {
+        $currency = 'NZD';
+    }
+
+    $convertedAmount = convertFromNZD($pdo, $amountNZD, $currency);
+    $decimal = in_array($currency, $GLOBALS['ZERO_DECIMAL_CURRENCIES'], true) ? 0 : 2;
+    return $currency . ' ' . number_format($convertedAmount, $decimal);
+
 }
