@@ -39,7 +39,7 @@ try {
         start_date   DATE         NOT NULL,
         end_date     DATE         NOT NULL,
         notes        TEXT,
-        travel_style VARCHAR(50),
+        travel_style VARCHAR(50) NOT NULL DEFAULT 'Personal Trip',
         created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )");
@@ -58,6 +58,10 @@ try {
     if (!empty($tripGroupSizeColumn)) {
         $pdo->exec("ALTER TABLE trips DROP COLUMN group_size");
     }
+
+    //Used for trip category selection
+    $pdo->exec("ALTER TABLE trips MODIFY travel_style VARCHAR(50) NOT NULL DEFAULT 'Personal Trip'");
+    $pdo->exec("UPDATE trips SET travel_style = 'Personal Trip' WHERE travel_style IS NULL OR travel_style = ''");
 
     // Flights — temporary dummy search pool
     $pdo->exec("CREATE TABLE IF NOT EXISTS flights (
@@ -197,6 +201,28 @@ try {
         description       TEXT,
         created_at        TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
     )");
+
+    //Budget Item:user-added custom budget per trip
+    $pdo->exec("CREATE TABLE IF NOT EXISTS budget_items (
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        user_id      INT           NOT NULL,
+        trip_id      INT           NOT NULL,
+        category     VARCHAR(100)  NOT NULL,
+        item_name    VARCHAR(255)  NOT NULL,
+        amount       DECIMAL(12,2) NOT NULL,
+        currency     VARCHAR(10)   NOT NULL DEFAULT 'NZD',
+        amount_nzd   DECIMAL(12,2) NOT NULL,
+        created_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS fx_rate_cache (
+        currency     VARCHAR(10)   NOT NULL PRIMARY KEY,
+        rate_to_nzd  DECIMAL(12,6) NOT NULL,
+        updated_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )");
+
     // Seed dummy data quietly after table creation
     require_once __DIR__ . '/dummyData.php';
     require_once __DIR__ . '/activitiesData.php';

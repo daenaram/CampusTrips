@@ -66,6 +66,23 @@ function isCurrencySupported(string $currency): bool
     return in_array(strtoupper(trim($currency)), $GLOBALS['SUPPORTED_CURRENCIES'], true);
 }
 
+//Fetches the exchange rate from live list of currencies Frankfurter API provides. Returns null if the currency is not supported or if the API call fails.
+function getLiveSupportCurrencies(): ?array{
+    $raw = @file_get_contents(FX_API_BASE . '/currencies');
+    if ($raw === false) {
+        return $GLOBALS['SUPPORTED_CURRENCIES'];
+    }
+
+    $all = json_decode($raw, true);
+    if (!is_array($all)) {
+        return $GLOBALS['SUPPORTED_CURRENCIES'];
+    }
+
+    $live = array_values(array_intersect($GLOBALS['SUPPORTED_CURRENCIES'], array_keys($all)));
+    return !empty($live) ? $live : $GLOBALS['SUPPORTED_CURRENCIES'];
+    
+}
+
 /**
  * Calls the Frankfurter API for a live 1-unit rate from $currency to NZD.
  * Returns null on any failure (network error, bad response, currency not
@@ -93,7 +110,7 @@ function fetchRateFromFrankfurter(string $currency): ?float
         $curlError = curl_error($ch);
         curl_close($ch);
 
-        if ($raw === false || $httpCode !== 200) {
+        if ($httpCode === 422) {
             error_log("Frankfurter API request failed for $currency (HTTP $httpCode): $curlError");
             return null;
         }
@@ -117,6 +134,78 @@ function fetchRateFromFrankfurter(string $currency): ?float
 
     return (float) $data['rates']['NZD'];
 }
+
+/**Refreshes the supported currencies rates.
+ * This function fetches the latest exchange rates for all supported currencies from the Frankfurter API and updates the local cache in the database. It is intended to be run periodically (e.g., via a cron job) to ensure that the cached rates remain up-to-date.
+ */
+function refreshAllFxRates(PDO $pdo): bool 
+{
+    $currencies = array_values(array_diff($GLOBALS['SUPPORTED_CURRENCIES'], ['NZD'])); // Exclude NZD since its rate is always 1
+    if (empty($currencies)) {
+        return true; 
+    }
+
+    $symbols = implode(',', $currencies);
+    $url = FX_API_BASE . '/latest?base=NZD&symbols=' . urlencode($symbols);
+    $raw = null;
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_HTTPHEADER     => ['Accept: application/json'],
+        ]);
+        $raw = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($raw === false || $httpCode !== 200) {
+            error_log("Bulk FX refresh failed (HTTP $httpCode)");
+            return false;
+        }
+    } elseif (ini_get('allow_url_fopen')) {
+        $raw = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 8]]));
+        if ($raw === false) {
+            error_log('Bulk FX refresh failed (file_get_contents)');
+            return false;
+        }
+    } else {
+        return false;
+    }
+
+    $data = json_decode($raw, true);
+    if (!isset($data['rates']) || !is_array($data['rates'])) {
+        error_log('Bulk FX refresh: unexpected response shape: ' . $raw);
+        return false;
+    }
+
+    try {
+        $upsert = $pdo->prepare("
+            INSERT INTO fx_rate_cache (currency, rate_to_nzd, fetched_at)
+            VALUES (?, ?, NOW())
+            ON DUPLICATE KEY UPDATE rate_to_nzd = VALUES(rate_to_nzd), fetched_at = VALUES(fetched_at)
+        ");
+
+        foreach ($data['rates'] as $currency => $nzdToCurrency) {
+            $nzdToCurrency = (float) $nzdToCurrency;
+            if ($nzdToCurrency > 0) {
+                $rateToNzd = 1 / $nzdToCurrency; // invert: NZD->X becomes X->NZD
+                $upsert->execute([$currency, round($rateToNzd, 6)]);
+            }
+        }
+    } catch (PDOException $e) {
+        error_log('Bulk FX refresh DB write error: ' . $e->getMessage());
+        return false;
+    }
+
+    return true;
+}
+
+
+
 
 /**
  * Gets the current rate for 1 unit of $currency in NZD, using the DB cache

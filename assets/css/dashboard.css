@@ -15,7 +15,7 @@ body {
     background: #fff;
     border: 1px solid #e3e6ea;
     border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .trip-grid {
@@ -44,7 +44,7 @@ body {
     background: #ffffff;
     border: 1px solid #e3e6ea;
     border-radius: 16px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
     padding: 1.25rem;
     min-height: 180px;
     min-width: 260px;
@@ -193,13 +193,27 @@ body {
     color: #111827;
 }
 
-.modal-form input {
-    width: 90%;
+.modal-form input,
+.modal-form select,
+.modal-form textarea {
+    width: 100%;
     padding: 0.75rem 0.9rem;
     border: 1px solid #d1d5db;
     border-radius: 12px;
     font-size: 0.95rem;
     background: #f8fafc;
+    font-family: inherit;
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.modal-form select {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'><polyline points='6 9 12 15 18 9'></polyline></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.9rem center;
+    padding-right: 2.2rem;
 }
 
 .modal-actions {
@@ -444,10 +458,8 @@ body {
     margin: 0;
     width: 100vw;
     height: 260px;
-    background-image: linear-gradient(
-        rgba(0,0,0,0.35),
-        rgba(0,0,0,0.35)
-    ), url("../../assets/images/dashboard-hero.jpg");
+    background-image: linear-gradient(rgba(0, 0, 0, 0.35),
+            rgba(0, 0, 0, 0.35)), url("../../assets/images/dashboard-hero.jpg");
     background-size: cover;
     background-position: center;
     z-index: 10;
@@ -487,5 +499,45 @@ body {
     font-size: 20px;
 }
 
+/*Bookmark ribbon for trip category*/
 
+/* Bookmark ribbon for trip categories */
 
+.trip-card {
+    position: relative;
+    overflow: visible;
+}
+
+.bookmark-ribbon {
+    position: absolute;
+    top: -6px;
+    right: 22px;
+    width: 22px;
+    height: 30px;
+    background: var(--ribbon-color, #0078d4);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0% 100%);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.18);
+    z-index: 5;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 6px;
+    cursor: default;
+}
+
+.bookmark-ribbon::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0.08));
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0% 100%);
+    pointer-events: none;
+}
+
+.bookmark-ribbon-label {
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.85rem;
+    z-index: 1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
