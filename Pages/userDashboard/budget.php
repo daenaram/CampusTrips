@@ -336,7 +336,7 @@ $categoryOptions = ['Flights', 'Accommodation', 'Activities', 'Food', 'Transport
     <?php if (count($trips) === 0): ?>
         <div class="budget-empty-state">
             <p>You don't have any saved trips yet.</p>
-            <a href="userDashboard.php">Go create a trip</a> to start tracking its budget.
+            <a href="Dashboard.php">Go create a trip</a> to start tracking its budget.
         </div>
     <?php else: ?>
 
