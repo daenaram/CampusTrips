@@ -529,7 +529,7 @@ try {
             <?php foreach ($activeTrips as $trip): ?>
                 <?php $tripId = (int)$trip['id']; ?>
                 <?php
-                $currentDate = date("d-m-Y");
+                $currentDate = date("Y-m-d");
                     if($trip['end_date'] <= $currentDate) {
                     continue;
                     }
