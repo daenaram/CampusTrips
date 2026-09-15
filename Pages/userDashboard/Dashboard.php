@@ -322,6 +322,21 @@ try {
 } catch (PDOException $e) {
     error_log('Trip load error: ' . $e->getMessage());
 }
+
+// Flattened, JS-friendly trip data used for the "Export as PDF" feature
+$pdfExportData = [];
+foreach ($trips as $trip) {
+    $tid = (int) $trip['id'];
+    $pdfExportData[$tid] = [
+        'title' => $trip['title'],
+        'destination' => $trip['destination'],
+        'start_date' => $trip['start_date'],
+        'end_date' => $trip['end_date'],
+        'notes' => $tripDetails[$tid]['notes'] ?? '',
+        'flights' => $tripDetails[$tid]['flights'] ?? [],
+        'hotels' => $tripDetails[$tid]['hotels'] ?? [],
+    ];
+}
 ?>
 <!DOCTYPE html>
 <html>
@@ -589,7 +604,10 @@ try {
                 </div>
                 <div class="trip-details-template" id="trip-details-template-<?php echo $tripId; ?>" style="display:none;">
                     <div class="trip-details-summary">
-                        <h4><?php echo htmlspecialchars($trip['title']); ?></h4>
+                        <div class="trip-details-summary-header">
+                            <h4><?php echo htmlspecialchars($trip['title']); ?></h4>
+                            <button type="button" class="trip-action-btn export-pdf-btn" data-trip-id="<?php echo $tripId; ?>">Export as PDF</button>
+                        </div>
                         <p><strong>Destination:</strong> <?php echo htmlspecialchars($trip['destination']); ?></p>
                         <p><strong>Dates:</strong> <?php echo htmlspecialchars($trip['start_date']); ?> → <?php echo htmlspecialchars($trip['end_date']); ?></p>
                         <p><strong>Trip Duration:</strong> <?php echo $duration; ?></p>
@@ -1229,6 +1247,20 @@ try {
     const tripsData = <?php echo json_encode($trips); ?>;
 </script>
 
+<!-- Trip data for the "Export as PDF" feature (as JSON) -->
+<script>
+    const tripPdfData = <?php echo json_encode($pdfExportData); ?>;
+</script>
+
+<!--
+    "Export as PDF" prints via the browser's own print dialog, which already
+    gives a preview pane plus layout, copies and destination controls
+    (including "Save as PDF") — no PDF library needed. This container is
+    filled in per-trip by exportTripPDF() and is the only thing left visible
+    when printing; see the ".pdf-print-area" rules in dashboard.css.
+-->
+<div class="pdf-print-area" id="pdf-print-area"></div>
+
 <script>
     // ---------- Hamburger menu behaviour ----------
     const menuToggle = document.getElementById('menuToggle');
@@ -1693,6 +1725,107 @@ try {
             hideTripDetailsModal();
         }
     });
+
+    // ---------- Export trip itinerary as PDF ----------
+
+    tripDetailsContent.addEventListener('click', function(event) {
+        const button = event.target.closest('.export-pdf-btn');
+        if (!button) {
+            return;
+        }
+        exportTripPDF(button.getAttribute('data-trip-id'));
+    });
+
+    function formatDateOnly(value) {
+        if (!value) return 'TBD';
+        const parsed = new Date(value.includes('T') ? value : value + 'T00:00:00');
+        if (isNaN(parsed)) return 'TBD';
+        return parsed.toLocaleDateString('en-NZ', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function formatDateTime(value) {
+        if (!value) return 'TBD';
+        const parsed = new Date(value.includes('T') ? value : value.replace(' ', 'T'));
+        if (isNaN(parsed)) return 'TBD';
+        const datePart = parsed.toLocaleDateString('en-NZ', { day: '2-digit', month: 'short', year: 'numeric' });
+        const timePart = parsed.toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit', hour12: false });
+        return datePart + ', ' + timePart;
+    }
+
+    function formatFlightDuration(minutes) {
+        const total = Number(minutes) || 0;
+        return Math.floor(total / 60) + 'h ' + (total % 60) + 'm';
+    }
+
+    function formatMoney(value) {
+        const amount = Number(value);
+        return 'NZD ' + (Number.isFinite(amount) ? amount.toFixed(2) : '0.00');
+    }
+
+    function printField(label, value) {
+        return '<p class="pdf-field"><strong>' + escapeHTML(label) + ':</strong> ' + (value || 'TBD') + '</p>';
+    }
+
+    function buildPrintableItinerary(trip) {
+        const flightsHtml = (!trip.flights || trip.flights.length === 0)
+            ? '<p class="pdf-empty">No flights have been added for this trip yet.</p>'
+            : trip.flights.map(function (flight) {
+                return '<div class="pdf-item">'
+                    + '<h3>' + escapeHTML(flight.airline + ' ' + flight.flight_number) + '</h3>'
+                    + printField('Route', escapeHTML(flight.departure_city + ' (' + flight.departure_airport + ') → ' + flight.arrival_city + ' (' + flight.arrival_airport + ')'))
+                    + printField('Departure', formatDateTime(flight.departure_datetime))
+                    + printField('Arrival', formatDateTime(flight.arrival_datetime))
+                    + printField('Duration / Stops', formatFlightDuration(flight.duration_minutes) + '  •  ' + (flight.stops == 0 ? 'Direct' : flight.stops + ' stop' + (flight.stops > 1 ? 's' : '')))
+                    + printField('Cabin / Price', escapeHTML(flight.cabin_class || 'Economy') + '  •  ' + formatMoney(flight.price_nzd))
+                    + '</div>';
+            }).join('');
+
+        const hotelsHtml = (!trip.hotels || trip.hotels.length === 0)
+            ? '<p class="pdf-empty">No accommodations have been added for this trip yet.</p>'
+            : trip.hotels.map(function (hotel) {
+                return '<div class="pdf-item">'
+                    + '<h3>' + escapeHTML(hotel.name + ' (' + hotel.type + ')') + '</h3>'
+                    + printField('Location', escapeHTML(hotel.city + ', ' + hotel.country))
+                    + printField('Address', escapeHTML(hotel.address))
+                    + printField('Check-in / Check-out', formatDateOnly(hotel.planned_check_in) + ' → ' + formatDateOnly(hotel.planned_check_out))
+                    + printField('Rating / Price', escapeHTML(hotel.rating || 'N/A') + '  •  ' + formatMoney(hotel.price_per_night_nzd) + ' / night')
+                    + '</div>';
+            }).join('');
+
+        const notesHtml = (!trip.notes || trip.notes.trim() === '')
+            ? '<p class="pdf-empty">No notes have been added for this trip yet.</p>'
+            : '<p class="pdf-note-text">' + escapeHTML(trip.notes) + '</p>';
+
+        return '<h1>' + escapeHTML(trip.title || 'Trip Itinerary') + '</h1>'
+            + '<p class="pdf-subtitle">CampusTrips — Trip Itinerary</p>'
+            + '<hr>'
+            + printField('Destination', escapeHTML(trip.destination))
+            + printField('Travel Dates', formatDateOnly(trip.start_date) + ' – ' + formatDateOnly(trip.end_date))
+            + printField('Group Size', 'Not specified yet')
+            + '<section><h2>Flights</h2>' + flightsHtml + '</section>'
+            + '<section><h2>Accommodations</h2>' + hotelsHtml + '</section>'
+            + '<section><h2>Notes</h2>' + notesHtml + '</section>';
+    }
+
+    function exportTripPDF(tripId) {
+        const trip = tripPdfData[tripId];
+        const printArea = document.getElementById('pdf-print-area');
+
+        if (!trip || !printArea) {
+            return;
+        }
+
+        printArea.innerHTML = buildPrintableItinerary(trip);
+
+        // Give the browser a moment to lay out the print content, then open
+        // its native print dialog. That dialog is the preview: it already
+        // offers layout (portrait/landscape), copies, and "Save as PDF" as
+        // a destination alongside any real printer, so no PDF library or
+        // custom preview UI is needed here.
+        window.requestAnimationFrame(function () {
+            window.print();
+        });
+    }
 
     <?php if ($showModal && !isset($conflictingTripId)): ?>
         window.addEventListener('DOMContentLoaded', showTripModal);
