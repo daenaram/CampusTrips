@@ -12,6 +12,7 @@ require_once __DIR__ . '/../../assets/api/config/database.php';
 require_once __DIR__ . '/../../assets/api/dashboard/searchflights.php';
 require_once __DIR__ . '/../../assets/api/dashboard/searchHotel.php';
 require_once __DIR__ . '/../../assets/api/dashboard/searchActivities.php';
+require_once __DIR__ . '/../../assets/api/helpers/categoryHelper.php';
 
 function renderTripSelectOptions(array $trips, ?int $selectedTripId = null): string {
     $html = '<option value="">Choose a trip</option>';
@@ -85,12 +86,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_item'])) {
 
     // Validate the new-trip details (if any) before writing anything.
     $newTripValues = null;
+    $conflictingTripId = null;
+
     if (empty($saveStatus['error']) && $createNewTrip) {
         $newTripTitle = trim($_POST['new_trip_title'] ?? '');
         $newTripDestination = trim($_POST['new_trip_destination'] ?? '');
         $newTripStartDate = trim($_POST['new_trip_start_date'] ?? '');
         $newTripEndDate = trim($_POST['new_trip_end_date'] ?? '');
         $newTripNotes = trim($_POST['new_trip_notes'] ?? '');
+        $newTripTravelStyle = tripCategory($_POST['new_trip_travel_style'] ?? null);
 
         $tripErrors = [];
         if ($newTripTitle === '') {
@@ -109,10 +113,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_item'])) {
             $tripErrors[] = 'End date must be the same as or after the start date.';
         }
 
+        if (empty($tripErrors) && $newTripStartDate !== '' && $newTripEndDate !== '') {
+            try {
+                $checkStmt = $pdo->prepare("
+                SELECT id, title FROM trips
+                WHERE user_id = ?
+                AND (start_date <= ? AND end_date >= ?)
+                LIMIT 1
+            ");
+                $checkStmt->execute([$_SESSION['user_id'], $newTripEndDate, $newTripStartDate]);
+                $conflictingTrip = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($conflictingTrip) {
+                    $tripErrors[] = 'Schedule Conflict: Overlaps with "' . htmlspecialchars($conflictingTrip['title']) . '". Please choose different dates.';
+                    $conflictingTripId = (int) $conflictingTrip['id'];
+                }
+            } catch (PDOException $e) {
+                error_log('Overlap check error (searchBoard): ' . $e->getMessage());
+            }
+        }
+
         if (!empty($tripErrors)) {
             $saveStatus['error'] = implode(' ', $tripErrors);
         } else {
-            $newTripValues = [$newTripTitle, $newTripDestination, $newTripStartDate, $newTripEndDate, $newTripNotes];
+            $newTripValues = [$newTripTitle, $newTripDestination, $newTripStartDate, $newTripEndDate, $newTripNotes, $newTripTravelStyle];
         }
     }
 
@@ -151,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_item'])) {
                     $newTripValues[2],
                     $newTripValues[3],
                     $newTripValues[4],
-                    '',
+                    $newTripValues[5],
                 ]);
                 $tripId = (int)$pdo->lastInsertId();
             }
@@ -886,6 +910,20 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                     <label>
                         Destination
                         <input type="text" name="new_trip_destination" placeholder="Destination" required>
+                    </label>
+                     <label>
+    Trip Category
+    <select name="travel_style" required>
+        <?php
+                            $selectedCategory = $_POST['travel_style'] ?? 'Personal Trip';
+                            foreach (getTripCategories() as $key => $meta):
+                                ?>
+                                <option value="<?php echo htmlspecialchars($key); ?>" <?php echo $selectedCategory === $key ? 'selected' : ''; ?>
+                                    >
+                                    <?php echo htmlspecialchars($meta['label']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </label>
                     <label>
                         Start date
