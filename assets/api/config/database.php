@@ -38,11 +38,30 @@ try {
         destination  VARCHAR(100) NOT NULL,
         start_date   DATE         NOT NULL,
         end_date     DATE         NOT NULL,
-        group_size   INT          DEFAULT 1,
-        travel_style VARCHAR(50),
+        notes        TEXT,
+        travel_style VARCHAR(50) NOT NULL DEFAULT 'Personal Trip',
         created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )");
+
+    $tripNotesColumn = $pdo->query("SHOW COLUMNS FROM trips LIKE 'notes'")->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($tripNotesColumn)) {
+        $pdo->exec("ALTER TABLE trips ADD COLUMN notes TEXT AFTER end_date");
+    }
+
+    $tripBudgetCapColumn = $pdo->query("SHOW COLUMNS FROM trips LIKE 'budget_cap'")->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($tripBudgetCapColumn)) {
+        $pdo->exec("ALTER TABLE trips ADD COLUMN budget_cap DECIMAL(10,2) NULL AFTER notes");
+    }
+
+    $tripGroupSizeColumn = $pdo->query("SHOW COLUMNS FROM trips LIKE 'group_size'")->fetchAll(PDO::FETCH_ASSOC);
+    if (!empty($tripGroupSizeColumn)) {
+        $pdo->exec("ALTER TABLE trips DROP COLUMN group_size");
+    }
+
+    //Used for trip category selection
+    $pdo->exec("ALTER TABLE trips MODIFY travel_style VARCHAR(50) NOT NULL DEFAULT 'Personal Trip'");
+    $pdo->exec("UPDATE trips SET travel_style = 'Personal Trip' WHERE travel_style IS NULL OR travel_style = ''");
 
     // Flights — temporary dummy search pool
     $pdo->exec("CREATE TABLE IF NOT EXISTS flights (
@@ -124,6 +143,52 @@ try {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
     )");
+
+    // Saved attractions for trips
+    $pdo->exec("CREATE TABLE IF NOT EXISTS saved_activities (
+        id                INT AUTO_INCREMENT PRIMARY KEY,
+        user_id           INT           NOT NULL,
+        trip_id           INT           NOT NULL,
+        name              VARCHAR(150)  NOT NULL,
+        city              VARCHAR(100)  NOT NULL,
+        category          VARCHAR(50)   NOT NULL,
+        activity_date     DATE,
+        cost_nzd          DECIMAL(10,2) DEFAULT 0.00,
+        description       TEXT,
+        notes             TEXT,
+        added_at          TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
+    )");
+
+    // Existing installations may have been created with MyISAM, which ignores
+    // transactions and foreign keys. Convert the related tables before saves
+    // rely on both guarantees.
+    $tableStatusStmt = $pdo->prepare("SHOW TABLE STATUS LIKE ?");
+    foreach (['trips', 'saved_flights', 'saved_accommodations', 'saved_activities'] as $table) {
+        $tableStatusStmt->execute([$table]);
+        $tableStatus = $tableStatusStmt->fetch(PDO::FETCH_ASSOC);
+        if (($tableStatus['Engine'] ?? '') !== 'InnoDB') {
+            $pdo->exec("ALTER TABLE `$table` ENGINE=InnoDB");
+        }
+    }
+
+    // Custom budget entries are queried by the budget page and dashboard.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS budget_items (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        user_id    INT NOT NULL,
+        trip_id    INT NOT NULL,
+        category   VARCHAR(50) NOT NULL,
+        item_name  VARCHAR(150) NOT NULL,
+        amount     DECIMAL(10,2) NOT NULL,
+        currency   VARCHAR(10) NOT NULL,
+        amount_nzd DECIMAL(10,2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX (user_id),
+        INDEX (trip_id)
+    ) ENGINE=InnoDB");
+
+    // Activities
     $pdo->exec("CREATE TABLE IF NOT EXISTS activities (
         id                 INT AUTO_INCREMENT PRIMARY KEY,
         activity_name      VARCHAR(150)  NOT NULL,
@@ -131,12 +196,33 @@ try {
         country            VARCHAR(100)  NOT NULL,
         category           VARCHAR(50)   NOT NULL,
         activity_date      DATE          NOT NULL,
-        activity_time      TIME          NOT NULL,
         cost_nzd          DECIMAL(10,2) NOT NULL,
         rating            DECIMAL(2,1),
         description       TEXT,
         created_at        TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
     )");
+
+    //Budget Item:user-added custom budget per trip
+    $pdo->exec("CREATE TABLE IF NOT EXISTS budget_items (
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        user_id      INT           NOT NULL,
+        trip_id      INT           NOT NULL,
+        category     VARCHAR(100)  NOT NULL,
+        item_name    VARCHAR(255)  NOT NULL,
+        amount       DECIMAL(12,2) NOT NULL,
+        currency     VARCHAR(10)   NOT NULL DEFAULT 'NZD',
+        amount_nzd   DECIMAL(12,2) NOT NULL,
+        created_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS fx_rate_cache (
+        currency     VARCHAR(10)   NOT NULL PRIMARY KEY,
+        rate_to_nzd  DECIMAL(12,6) NOT NULL,
+        updated_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )");
+
     // Seed dummy data quietly after table creation
     require_once __DIR__ . '/dummyData.php';
     require_once __DIR__ . '/activitiesData.php';

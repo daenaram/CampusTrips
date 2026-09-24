@@ -3,6 +3,7 @@
 function searchFlights(PDO $pdo, array $data): array {
     $departureCity = trim($data['departure_city'] ?? '');
     $arrivalCity   = trim($data['arrival_city'] ?? '');
+    $airline       = trim($data['airline'] ?? '');
     $departureDate = trim($data['departure_date'] ?? '');
     $returnDate    = trim($data['return_date'] ?? '');
 
@@ -11,13 +12,18 @@ function searchFlights(PDO $pdo, array $data): array {
     $params = [];
 
     if ($departureCity !== '') {
-        $conditions[] = 'departure_city LIKE :departure_city';
+        $conditions[] = 'departure_city LIKE :departure_city OR departure_airport LIKE :departure_city';
         $params[':departure_city'] = "%$departureCity%";
     }
 
     if ($arrivalCity !== '') {
-        $conditions[] = 'arrival_city LIKE :arrival_city';
+        $conditions[] = 'arrival_city LIKE :arrival_city OR arrival_airport LIKE :arrival_city';
         $params[':arrival_city'] = "%$arrivalCity%";
+    }
+
+    if ($airline !== '') {
+        $conditions[] = 'airline LIKE :airline';
+        $params[':airline'] = "%$airline%";
     }
 
     if ($departureDate !== '' && $returnDate !== '') {

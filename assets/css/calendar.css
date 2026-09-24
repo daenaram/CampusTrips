@@ -1,0 +1,262 @@
+/* Floating Calendar Button */
+.floating-calendar-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #0078d4 0%, #005a9e 100%);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 120, 212, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: white;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    z-index: 999;
+}
+
+.floating-calendar-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0, 120, 212, 0.5);
+}
+
+.floating-calendar-btn:active {
+    transform: scale(0.95);
+}
+
+/* Calendar Modal */
+.calendar-modal-backdrop {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.calendar-modal-backdrop.visible {
+    display: flex;
+}
+
+.calendar-modal {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.calendar-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.calendar-modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #222;
+}
+
+.calendar-close-btn {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.calendar-close-btn:hover {
+    color: #222;
+}
+
+.calendar-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 10px;
+}
+
+.calendar-nav-btn {
+    background: #f0f0f0;
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #222;
+    transition: background 0.2s;
+}
+
+.calendar-nav-btn:hover {
+    background: #e0e0e0;
+}
+
+.calendar-month-year {
+    font-weight: 600;
+    font-size: 16px;
+    color: #222;
+    flex: 1;
+    text-align: center;
+}
+
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.calendar-weekday {
+    text-align: center;
+    font-weight: 600;
+    color: #666;
+    font-size: 12px;
+    padding: 8px 0;
+}
+
+.calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+}
+
+.calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e3e6ea;
+    border-radius: 6px;
+    cursor: pointer;
+    background: white;
+    font-size: 14px;
+    color: #222;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.calendar-day:hover {
+    background: #f0f0f0;
+    border-color: #0078d4;
+}
+
+.calendar-day.other-month {
+    color: #ccc;
+    background: #fafafa;
+    cursor: default;
+}
+
+.calendar-day.other-month:hover {
+    background: #fafafa;
+    border-color: #e3e6ea;
+}
+
+.calendar-day.has-trip {
+    background: #e3f2fd;
+    border-color: #0078d4;
+    font-weight: 600;
+    color: #0078d4;
+}
+
+.calendar-day.has-trip:hover {
+    background: #bbdefb;
+}
+
+.calendar-day.trip-range {
+    background: #e3f2fd;
+    border-radius: 0;
+    border-color: #0078d4;
+}
+
+.calendar-day.trip-range-start {
+    border-radius: 6px 0 0 6px;
+}
+
+.calendar-day.trip-range-end {
+    border-radius: 0 6px 6px 0;
+}
+
+.calendar-day.trip-range-single {
+    border-radius: 6px;
+}
+
+.calendar-trips-list {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e3e6ea;
+}
+
+.calendar-trips-list h3 {
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    color: #222;
+}
+
+.calendar-trip-item {
+    background: #f9f9f9;
+    border-left: 4px solid #0078d4;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
+.calendar-trip-item-title {
+    font-weight: 600;
+    color: #222;
+    margin: 0 0 5px 0;
+    font-size: 14px;
+}
+
+.calendar-trip-item-details {
+    font-size: 12px;
+    color: #666;
+    margin: 0;
+}
+
+.calendar-trip-item-dates {
+    font-size: 12px;
+    color: #0078d4;
+    margin-top: 5px;
+}
+
+.no-trips-message {
+    text-align: center;
+    color: #999;
+    padding: 20px;
+    font-size: 14px;
+}
+
+@media (max-width: 600px) {
+    .calendar-modal {
+        max-width: 95%;
+        padding: 16px;
+    }
+
+    .floating-calendar-btn {
+        width: 50px;
+        height: 50px;
+        bottom: 20px;
+        right: 20px;
+        font-size: 24px;
+    }
+}

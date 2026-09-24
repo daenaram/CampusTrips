@@ -10,15 +10,28 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once __DIR__ . '/../../assets/api/config/database.php';
 
+//for conflict detection
+require_once __DIR__ . '/../../assets/api/helpers/conflictDetection.php';
+
+//for budget totals (shared with budget.php)
+require_once __DIR__ . '/../../assets/api/helpers/currencyHelper.php';
+require_once __DIR__ . '/../../assets/api/helpers/budgetHelper.php';
+
+//for trip category
+require_once __DIR__ . '/../../assets/api/helpers/categoryHelper.php';
+
 $errors = [];
 $showModal = false;
+$tripActionMessage = '';
 
+// Handle trip creation form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_trip'])) {
     $title = trim($_POST['title'] ?? '');
     $destination = trim($_POST['destination'] ?? '');
     $start_date = trim($_POST['start_date'] ?? '');
     $end_date = trim($_POST['end_date'] ?? '');
-    $group_size = intval($_POST['group_size'] ?? 0);
+    $travel_style = tripCategory($_POST['travel_style'] ?? null);
+    $notes = trim($_POST['notes'] ?? '');
 
     if ($title === '') {
         $errors[] = 'Please enter a title for the trip.';
@@ -35,14 +48,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_trip'])) {
     if ($start_date !== '' && $end_date !== '' && strtotime($start_date) > strtotime($end_date)) {
         $errors[] = 'End date must be the same as or after the start date.';
     }
-    if ($group_size < 1) {
-        $errors[] = 'Please enter a valid group size.';
+
+    //checking if there is an exisitng trip that overlaps with the dates
+    if (empty($errors)) {
+        try {
+            // We need the ID and Title to trigger the popup
+            $checkStmt = $pdo->prepare("
+            SELECT id, title FROM trips 
+            WHERE user_id = ? 
+            AND (start_date <= ? AND end_date >= ?)
+            LIMIT 1
+        ");
+
+            $checkStmt->execute([$_SESSION['user_id'], $end_date, $start_date]);
+            $conflictingTrip = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($conflictingTrip) {
+                $errors[] = 'Schedule Conflict: Overlaps with "' . htmlspecialchars($conflictingTrip['title']) . '". Please choose different dates.';
+                // CRITICAL: Capture the ID for the JS bridge
+                $conflictingTripId = (int) $conflictingTrip['id'];
+            }
+        } catch (PDOException $e) {
+            error_log('Overlap check error: ' . $e->getMessage());
+        }
     }
+
 
     if (empty($errors)) {
         try {
-            $stmt = $pdo->prepare("INSERT INTO trips (user_id, title, destination, start_date, end_date, group_size, travel_style) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$_SESSION['user_id'], $title, $destination, $start_date, $end_date, $group_size, '']);
+            $stmt = $pdo->prepare("INSERT INTO trips (user_id, title, destination, start_date, end_date, notes, travel_style) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['user_id'], $title, $destination, $start_date, $end_date, $notes, $travel_style]);
             header('Location: ' . $_SERVER['REQUEST_URI']);
             exit();
         } catch (PDOException $e) {
@@ -56,13 +91,251 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_trip'])) {
     }
 }
 
+// Handle trip notes saving
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_notes'])) {
+    $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+    $tripNotes = trim($_POST['trip_notes'] ?? '');
+
+    if ($tripId && $tripId > 0) {
+        try {
+            $stmt = $pdo->prepare("UPDATE trips SET notes = ? WHERE id = ? AND user_id = ?");
+            $stmt->execute([$tripNotes, $tripId, $_SESSION['user_id']]);
+            $tripActionMessage = 'Trip notes saved.';
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit();
+        } catch (PDOException $e) {
+            error_log('Trip note update error: ' . $e->getMessage());
+            $errors[] = 'Unable to save your notes right now.';
+        }
+    } else {
+        $errors[] = 'Unable to save your notes right now.';
+    }
+}
+
+// Handle trip deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_trip'])) {
+    $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+
+    if ($tripId && $tripId > 0) {
+        try {
+            $pdo->beginTransaction();
+
+            $deleteFlightStmt = $pdo->prepare("DELETE FROM saved_flights WHERE user_id = ? AND trip_id = ?");
+            $deleteFlightStmt->execute([$_SESSION['user_id'], $tripId]);
+
+            $deleteHotelStmt = $pdo->prepare("DELETE FROM saved_accommodations WHERE user_id = ? AND trip_id = ?");
+            $deleteHotelStmt->execute([$_SESSION['user_id'], $tripId]);
+
+            $deleteActivityStmt = $pdo->prepare("DELETE FROM saved_activities WHERE user_id = ? AND trip_id = ?");
+            $deleteActivityStmt->execute([$_SESSION['user_id'], $tripId]);
+
+            $deleteTripStmt = $pdo->prepare("DELETE FROM trips WHERE id = ? AND user_id = ?");
+            $deleteTripStmt->execute([$tripId, $_SESSION['user_id']]);
+
+            $pdo->commit();
+            $tripActionMessage = 'Trip deleted successfully.';
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit();
+        } catch (PDOException $e) {
+            $pdo->rollBack();
+            error_log('Trip deletion error: ' . $e->getMessage());
+            $errors[] = 'Unable to delete the trip right now.';
+        }
+    } else {
+        $errors[] = 'Unable to delete the trip right now.';
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_activity_date'])) {
+
+    $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+    $activityId = filter_input(INPUT_POST, 'activity_id', FILTER_VALIDATE_INT);
+    $activityDate = trim($_POST['activity_date'] ?? '');
+
+    if (!$tripId || !$activityId || $activityDate === '') {
+        $errors[] = 'Please choose a valid activity date.';
+    } else {
+        try {
+
+            // Get the trip's valid date range
+            $tripDateStmt = $pdo->prepare("
+                SELECT start_date, end_date
+                FROM trips
+                WHERE id = ? AND user_id = ?
+            ");
+
+            $tripDateStmt->execute([
+                $tripId,
+                $_SESSION['user_id']
+            ]);
+
+            $selectedTrip = $tripDateStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$selectedTrip) {
+                $errors[] = 'Trip could not be found.';
+
+            } elseif (
+                $activityDate < $selectedTrip['start_date'] ||
+                $activityDate > $selectedTrip['end_date']
+            ) {
+                $errors[] = 'Activity date must be within the trip dates.';
+
+            } else {
+
+                $updateStmt = $pdo->prepare("
+                    UPDATE saved_activities
+                    SET activity_date = ?
+                    WHERE id = ?
+                    AND trip_id = ?
+                    AND user_id = ?
+                ");
+
+                $updateStmt->execute([
+                    $activityDate,
+                    $activityId,
+                    $tripId,
+                    $_SESSION['user_id']
+                ]);
+
+                header('Location: ' . $_SERVER['REQUEST_URI']);
+                exit();
+            }
+
+        } catch (PDOException $e) {
+            error_log('Activity date update error: ' . $e->getMessage());
+            $errors[] = 'Unable to update activity date.';
+        }
+    }
+}
+
+// Handle saved item deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_saved_item'])) {
+    $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+    $itemId = filter_input(INPUT_POST, 'item_id', FILTER_VALIDATE_INT);
+    $itemType = $_POST['item_type'] ?? '';
+
+    if ($tripId && $itemId && in_array($itemType, ['flight', 'hotel', 'activity'], true)) {
+        try {
+            switch ($itemType) {
+                case 'flight':
+                    $stmt = $pdo->prepare("DELETE FROM saved_flights WHERE id = ? AND user_id = ? AND trip_id = ?");
+                    break;
+                case 'hotel':
+                    $stmt = $pdo->prepare("DELETE FROM saved_accommodations WHERE id = ? AND user_id = ? AND trip_id = ?");
+                    break;
+                case 'activity':
+                    $stmt = $pdo->prepare("DELETE FROM saved_activities WHERE id = ? AND user_id = ? AND trip_id = ?");
+                    break;
+            }
+            if (isset($stmt)) {
+                $stmt->execute([$itemId, $_SESSION['user_id'], $tripId]);
+                header('Location: ' . $_SERVER['REQUEST_URI']);
+                exit();
+            }
+        } catch (PDOException $e) {
+            error_log('Item deletion error: ' . $e->getMessage());
+            $errors[] = 'Unable to remove the saved item right now.';
+        }
+    } else {
+        $errors[] = 'Unable to remove the saved item right now.';
+    }
+}
+
+$sort = $_GET['sort'] ?? 'soonest';
+
+switch ($sort) {
+    case 'newest':
+        $orderBy = "created_at DESC";
+        break;
+
+    case 'oldest':
+        $orderBy = "created_at ASC";
+        break;
+
+    case 'latest':
+        $orderBy = "start_date DESC";
+        break;
+
+    case 'soonest':
+        $orderBy = "start_date ASC";
+        break;
+}
+
 $trips = [];
+$allTrips = [];
+$tripDetails = [];
+
+// Fetch trips and their associated details
+
 try {
-    $stmt = $pdo->prepare("SELECT * FROM trips WHERE user_id = ? ORDER BY start_date ASC");
+
+    $currentDate = date("Y-m-d");
+    $stmt = $pdo->prepare("
+        SELECT id, title, destination, start_date, end_date, notes, travel_style
+        FROM trips
+        WHERE user_id = ? 
+        ORDER BY $orderBy
+    ");
+
     $stmt->execute([$_SESSION['user_id']]);
-    $trips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $allTrips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $trips = $allTrips;
+
+    //To deleted completed trips from "Your Saved Trips" section, we filter out trips that have already ended.
+    $currentDate = date('Y-m-d');
+    $activeTrips = array_filter($trips, function ($trip) use ($currentDate) {
+        return $trip['end_date'] >= $currentDate;
+    });
+
+    foreach ($trips as $trip) {
+        $tripId = (int)$trip['id'];
+        $tripDetails[$tripId] = [
+            'notes' => $trip['notes'] ?? '',
+            'flights' => [],
+            'hotels' => [],
+            'attractions' => []
+        ];
+
+        // Fetch associated flights, hotels, and attractions for each trip
+        $flightStmt = $pdo->prepare("SELECT id, airline, flight_number, departure_city, arrival_city, departure_airport, arrival_airport, departure_datetime, arrival_datetime, duration_minutes, stops, cabin_class, price_nzd FROM saved_flights WHERE user_id = ? AND trip_id = ? ORDER BY departure_datetime ASC");
+        $flightStmt->execute([$_SESSION['user_id'], $tripId]);
+        $tripDetails[$tripId]['flights'] = $flightStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $hotelStmt = $pdo->prepare("SELECT id, name, type, city, country, address, planned_check_in, planned_check_out, price_per_night_nzd, rating, notes FROM saved_accommodations WHERE user_id = ? AND trip_id = ? ORDER BY planned_check_in ASC, planned_check_out ASC");
+        $hotelStmt->execute([$_SESSION['user_id'], $tripId]);
+        $tripDetails[$tripId]['hotels'] = $hotelStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $activityStmt = $pdo->prepare("SELECT id, name, city, category, activity_date, cost_nzd, description, notes FROM saved_activities WHERE user_id = ? AND trip_id = ? ORDER BY activity_date ASC, name ASC");
+        $activityStmt->execute([$_SESSION['user_id'], $tripId]);
+        $tripDetails[$tripId]['attractions'] = $activityStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Conflict detection for the trip
+        $tripDetails[$tripId]['conflicts'] = getTripConflicts($tripDetails[$tripId]['flights'], $tripDetails[$tripId]['hotels'], $tripDetails[$tripId]['attractions']);
+
+        // Budget summary for the trip (flights + hotels + activities + custom items, all in NZD)
+        $tripDetails[$tripId]['budget'] = getTripBudgetSummary($pdo, $tripId, $_SESSION['user_id']);
+    }
+
+    
+
 } catch (PDOException $e) {
     error_log('Trip load error: ' . $e->getMessage());
+}
+
+// Flattened, JS-friendly trip data used for the "Export as PDF" feature
+$pdfExportData = [];
+foreach ($trips as $trip) {
+    $tid = (int) $trip['id'];
+    $pdfExportData[$tid] = [
+        'title' => $trip['title'],
+        'destination' => $trip['destination'],
+        'start_date' => $trip['start_date'],
+        'end_date' => $trip['end_date'],
+        'notes' => $tripDetails[$tid]['notes'] ?? '',
+        'flights' => $tripDetails[$tid]['flights'] ?? [],
+        'hotels' => $tripDetails[$tid]['hotels'] ?? [],
+    ];
 }
 ?>
 <!DOCTYPE html>
@@ -73,31 +346,91 @@ try {
     <title>User Dashboard</title>
     <link rel="stylesheet" href="../../assets/css/settingsbutton.css">
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
+    <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css">
+    <link rel="stylesheet" href="../../assets/css/calendar.css">
+    <link rel="stylesheet" href="../../assets/css/conflictAlert.css">
 </head>
 <body>
 
-<h1>CampusTrips</h1>
-<h1>AUT Web-Based Travel Planner</h1>
-<?php if (isset($_SESSION['name'])): ?>
-    <p>Welcome, <?php echo htmlspecialchars($_SESSION['name']); ?>!</p>
-<?php endif; ?>
-<p>Here you can manage your travel plans, view your itinerary, and access exclusive travel deals</p>
+<!-- Hamburger menu icon (top right) -->
+<button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false" aria-controls="menuPanel">
+    <span class="bar"></span>
+    <span class="bar"></span>
+    <span class="bar"></span>
+</button>
+
+<div class="menu-backdrop" id="menuBackdrop"></div>
+
+<nav class="menu-panel" id="menuPanel" aria-hidden="true">
+    <div class="menu-panel-header">
+        <?php if (isset($_SESSION['name'])): ?>
+            <p>Hi, <?php echo htmlspecialchars($_SESSION['name']); ?></p>
+        <?php else: ?>
+            <p>Menu</p>
+        <?php endif; ?>
+    </div>
+
+    <ul class="menu-list">
+        <li>
+            <button type="button" onclick="location.href='userProfile.php'">
+                User Profile
+            </button>
+        </li>
+        <li>
+            <button type="button" onclick="location.href='budget.php'">
+                Budget
+            </button>
+        </li>
+
+        <li>
+            <button type="button" onclick="location.href='settings.php'">
+                Settings
+            </button>
+        </li>
+        <li>
+            <button type="button" onclick="location.href='helpDesk.php'">
+                Contact us
+            </button>
+        </li>
+        <li>
+            <button type="button" onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">
+                Sign Out
+            </button>
+        </li>
+    </ul>
+</nav>
+
+<div class="dashboard-hero">
+    <div class="hero-overlay">    
+        <h1>CampusTrips</h1>
+        <h2>AUT Web-Based Travel Planner</h2>
+        <?php if (isset($_SESSION['name'])): ?>
+            <p>Welcome, <?php echo htmlspecialchars($_SESSION['name']); ?>! Here you can manage your travel plans, view your itinerary, and access exclusive travel deals.</p>
+        <?php endif; ?>
+    </div>
+</div>
 
 <!-- Search bar prototype -->
 
-<div class="search-container">
+<div class="search-container-dashBoard">
     <div class="search-tabs">
-        <button class="tab-btn active" onclick="showSearchTab('flights', this)">Flights</button>
-        <button class="tab-btn" onclick="showSearchTab('accommodation', this)">Accommodation</button>
-        <button class="tab-btn" onclick="showSearchTab('activities', this)">Activities</button>
-        <button class="tab-btn" onclick="showSearchTab('budget', this)">Budget</button>
-        <button class="tab-btn" onclick="showSearchTab('itinerary', this)">Itinerary Building</button>
+        <button class="tab-btn active" data-tab="flights" onclick="showSearchTab('flights', this)">Flights</button>
+        <button class="tab-btn" data-tab="accommodation" onclick="showSearchTab('accommodation', this)">Accommodation</button>
+        <button class="tab-btn" data-tab="activities" onclick="showSearchTab('activities', this)">Activities</button>
     </div>
 
     <form method="POST" action="/AUT-Web-Based-Travel-Planner/Pages/userDashboard/searchBoard.php" class="search-panel active-panel" id="flights">
         <input type="hidden" name="search_type" value="flights">
         <input type="text" name="departure_city" placeholder="Starting Location...">
         <input type="text" name="arrival_city" placeholder="Destination...">
+        <select name="airline" id="airline">
+            <option value="">Any Airline</option>
+            <option value="Air New Zealand">Air New Zealand</option>
+            <option value="Qantas">Qantas</option>
+            <option value="Jetstar">Jetstar</option>
+            <option value="Emirates">Emirates</option>
+            <option value="Singapore Airlines">Singapore Airlines</option>
+        </select>
         <input type="date" name="departure_date">
         <input type="date" name="return_date">
         <button type="submit" class="search-btn">Search</button>
@@ -120,30 +453,6 @@ try {
         <button type="submit" class="search-btn">Search</button>
     </form>
 
-    <div id="budget" class="search-panel">
-        <input type="text" placeholder="Search budget...">
-        <button class="search-btn">Search</button>
-    </div>
-
-    <div id="itinerary" class="search-panel">
-        <input type="text" placeholder="Search itinerary...">
-        <button class="search-btn">Search</button>
-    </div>
-</div>
-
-<!--  -->
-
-<!-- <a class="top-right-button" href="/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php">Sign Out</a>
-<p><a href="userProfile.php">View User Profile</a></p> -->
-
-<div class="top-right-actions">
-    <button class="profile-btn" onclick="location.href='userProfile.php'">
-        <div class="mini-avatar"></div>
-    </button>
-
-    <button class="signout-btn" onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">
-        Sign Out
-    </button>
 </div>
 
 <!-- Search function JS -->
@@ -160,16 +469,59 @@ try {
             button.classList.remove('active');
         });
 
-        document.getElementById(tabId).classList.add('active-panel');
-        clickedButton.classList.add('active');
+        const targetPanel = document.getElementById(tabId);
+        if (targetPanel) {
+            targetPanel.classList.add('active-panel');
+        }
+
+        if (clickedButton) {
+            clickedButton.classList.add('active');
+        }
     }
  </script>
-<!--  -->
+ 
+
+<!-- Saved trips -->
+
 
  <div class="savedTrips">
-    <h2>Your Saved Trips</h2>
-    <p>View and manage your saved trips here.</p>
+    
+    <div class="savedTrips-header">
 
+        <div class="savedTrips-title">
+            <h2>Your Saved Trips</h2>
+            <p>View and manage your saved trips here.</p>
+        </div>
+
+        <form method="GET" class="sort-container">
+
+            <label for="sortTrips">Sort by:</label>
+
+            <select id="sortTrips" name="sort" onchange="this.form.submit()">
+
+            <option value="soonest" <?= $sort == 'soonest' ? 'selected': '' ?>>
+                Trip Coming Soon
+            </option>
+
+            <option value="latest" <?= $sort == 'latest' ? 'selected': '' ?>>
+                Trip Furthest Away
+            </option>
+
+            <option value="newest" <?= $sort == 'newest' ? 'selected': '' ?>>
+                Date Created (Newest)
+            </option>
+
+            <option value="oldest" <?= $sort == 'oldest' ? 'selected': '' ?>>
+                Date Created (Oldest)
+            </option>
+
+            </select>
+
+        </form>
+
+    </div>
+
+        <!--Creating New Trip Card -->
     <div class="trip-grid">
         <div class="trip-card new-trip-card">
             <a href="#" id="open-trip-modal" class="new-trip-link">
@@ -181,7 +533,7 @@ try {
             </a>
         </div>
 
-        <?php if (count($trips) === 0): ?>
+        <?php if (count($activeTrips) === 0): ?>
             <div class="trip-card empty-trip-card">
                 <div class="trip-card-body">
                     <p>No saved trips yet.</p>
@@ -189,8 +541,20 @@ try {
                 </div>
             </div>
         <?php else: ?>
-            <?php foreach ($trips as $trip): ?>
+            <?php foreach ($activeTrips as $trip): ?>
+                <?php $tripId = (int)$trip['id']; ?>
+                <?php
+                $currentDate = date("Y-m-d");
+                    if($trip['end_date'] <= $currentDate) {
+                    continue;
+                    }
+                $tripId = (int) $trip['id'];
+                $category = getCategoryDetails($trip['travel_style']);
+                ?>
                 <div class="trip-card saved-trip-card">
+                    <span class="bookmark-ribbon" style="--ribbon-color: <?php echo htmlspecialchars($category['color']); ?>" title="<?php echo htmlspecialchars($category['label']); ?>">
+                        <span class="bookmark-ribbon-label"><?php echo htmlspecialchars(strtoupper(substr($category['label'], 0, 1))); ?></span>
+                    </span>
                     <div class="trip-card-title"><?php echo htmlspecialchars($trip['title']); ?></div>
                     <div class="trip-card-detail">
                         <strong>Destination</strong>
@@ -200,9 +564,476 @@ try {
                         <strong>Dates</strong>
                         <span><?php echo htmlspecialchars($trip['start_date']); ?> → <?php echo htmlspecialchars($trip['end_date']); ?></span>
                     </div>
+                    <?php 
+                        $startDate = new DateTime($trip['start_date']);
+                        $endDate = new DateTime($trip['end_date']);
+
+                        $totalDays = $startDate->diff($endDate)->days + 1;
+
+                        $weeks = floor($totalDays / 7);
+                        $days = $totalDays % 7;
+
+                        if ($weeks > 0 && $days > 0){
+                            $duration = $weeks . " week" . ($weeks > 1 ? "s" : "") . " " .
+                                        $days . " day" . ($days > 1 ? "s" : "");
+                        } elseif ($weeks > 0){
+                            $duration = $weeks . " week" . ($weeks > 1 ? "s" : "");
+                        } else {
+                            $duration = $days . " day" . ($days > 1 ? "s" : "");
+                        }
+                    ?>
                     <div class="trip-card-detail">
-                        <strong>Group Size</strong>
-                        <span><?php echo htmlspecialchars($trip['group_size']); ?></span>
+                        <strong>Trip Duration</strong>
+                        <span><?php echo $duration; ?></span>
+                    </div>
+
+                    <div class="trip-card-detail">
+                        <strong>Total Cost</strong>
+                        <span>NZD <?php echo number_format($tripDetails[$tripId]['budget']['grand_total'] ?? 0, 2); ?></span>
+                    </div>
+                    
+                    <!--Added style to separate the two buttons-->
+                    <div class="trip-card-actions"
+                    style="display:flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                        <button type="button" class="trip-action-btn view-details-btn" data-trip-id="<?php echo $tripId; ?>">View Details</button>
+                        <form method="POST" class="trip-delete-form" onsubmit="return confirm('Delete this trip? This cannot be undone.');">
+                            <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                            <button type="submit" name="delete_trip" class="trip-action-btn delete-trip-btn">Delete Trip</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="trip-details-template" id="trip-details-template-<?php echo $tripId; ?>" style="display:none;">
+                    <div class="trip-details-summary">
+                        <div class="trip-details-summary-header">
+                            <h4><?php echo htmlspecialchars($trip['title']); ?></h4>
+                            <button type="button" class="trip-action-btn export-pdf-btn" data-trip-id="<?php echo $tripId; ?>">Export as PDF</button>
+                        </div>
+                        <p><strong>Destination:</strong> <?php echo htmlspecialchars($trip['destination']); ?></p>
+                        <p><strong>Dates:</strong> <?php echo htmlspecialchars($trip['start_date']); ?> → <?php echo htmlspecialchars($trip['end_date']); ?></p>
+                        <p><strong>Trip Duration:</strong> <?php echo $duration; ?></p>
+                    </div>
+
+                    <div class="trip-details-section trip-flight-expense-section">
+                        <div class="trip-flights-column">
+                            <h5>Flights</h5><?php if (empty($tripDetails[$tripId]['flights'])): ?>
+                                <p class="trip-details-empty">No flights added for this trip yet.</p>
+                                <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="flights">Add Flight</button>
+                            <?php else: ?>
+
+                                <div class="saved-items-grid flight-stack">
+                                    <?php foreach ($tripDetails[$tripId]['flights'] as $flight): ?>
+                                        <div class="collapsible-card">
+                                            <button type="button" class="collapsible-header">
+                                                <div>
+                                                    <strong>
+                                                        <?php echo htmlspecialchars($flight['airline']); ?>
+                                                        <?php echo htmlspecialchars($flight['flight_number']); ?>
+                                                    </strong>
+                                                    <span class="collapsed-date"><?php echo date('d M Y', strtotime($flight['departure_datetime'])); ?></span>
+                                                </div>
+                                                <span class="collapse-arrow">⌄</span>
+                                            </button>
+                                    
+                                    <div class="collapsible-content">
+
+                                        <div class="saved-item-meta">
+
+                                            <div class="detail-row">
+                                                <strong>Route:</strong>
+                                                    <span>  
+                                                        <?php echo htmlspecialchars(
+                                                            $flight['departure_city'] .
+                                                            ' → ' .
+                                                            $flight['arrival_city']
+                                                        ); ?>
+                                                    </span>
+                                            </div>
+
+                                            <div class="detail-row">
+                                                <strong>From:</strong>    
+                                                    <span>
+                                                        <?php echo htmlspecialchars(
+                                                            $flight['departure_airport']
+                                                        ); ?>
+                                                    </span>
+                                            </div>
+
+                                            <div class="detail-row">
+                                                <strong>To:</strong>    
+                                                    <span>
+                                                        <?php echo htmlspecialchars(
+                                                            $flight['arrival_airport']
+                                                        ); ?>
+                                                    </span>
+                                            </div>
+
+                                            <div class="detail-row">
+                                                <strong>Departure:</strong>    
+                                                    <span>
+                                                        <?php echo htmlspecialchars(
+                                                            $flight['departure_datetime']
+                                                                ? date(
+                                                                    'd M Y H:i',
+                                                                    strtotime($flight['departure_datetime'])
+                                                                )
+                                                                : 'TBD'
+                                                        ); ?>
+                                                    </span>
+                                            </div>
+                                            
+                                            <div class="detail-row">
+                                                <strong>Arrival:</strong>    
+                                                    <span>
+                                                        
+                                                        <?php echo htmlspecialchars(
+                                                            $flight['arrival_datetime']
+                                                                ? date(
+                                                                    'd M Y H:i',
+                                                                    strtotime($flight['arrival_datetime'])
+                                                                )
+                                                                : 'TBD'
+                                                        ); ?>
+                                                    </span>
+                                            </div>
+
+                                            <div class="detail-row">
+                                                <strong>Duration:</strong>    
+                                                    <span>
+                                                        <?php echo htmlspecialchars(
+                                                            floor($flight['duration_minutes'] / 60)
+                                                            . 'h '
+                                                            . ($flight['duration_minutes'] % 60)
+                                                            . 'm'
+                                                        ); ?>
+                                                    </span>
+                                            </div>
+
+                                            <div class="detail-row">
+                                                <strong>Stops:</strong>   
+                                                    <span>
+                                                        <?php echo htmlspecialchars(
+                                                            $flight['stops'] == 0
+                                                                ? 'Direct'
+                                                                : $flight['stops'] .
+                                                                ' stop' .
+                                                                ($flight['stops'] > 1 ? 's' : '')
+                                                        ); ?>
+                                                    </span>
+                                            </div>
+                                        </div>
+
+                                        <div class="saved-item-footer">
+
+                                            <span>
+                                                NZD
+                                                <?php echo htmlspecialchars(
+                                                    number_format($flight['price_nzd'], 0)
+                                                ); ?>
+                                            </span>
+
+                                            <span>
+                                                <?php echo htmlspecialchars(
+                                                    $flight['cabin_class'] ?: 'Economy'
+                                                ); ?>
+                                            </span>
+
+                                        </div>
+
+                                        <div class="saved-item-actions">
+
+                                            <form
+                                                method="POST"
+                                                onsubmit="return confirm('Remove this flight from the trip?');"
+                                            >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="trip_id"
+                                                    value="<?php echo $tripId; ?>"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="item_type"
+                                                    value="flight"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="item_id"
+                                                    value="<?php echo htmlspecialchars($flight['id']); ?>"
+                                                >
+
+                                                <button
+                                                    type="submit"
+                                                    name="delete_saved_item"
+                                                    class="saved-item-remove-btn"
+                                                >
+                                                    Remove
+                                                </button>
+
+                                            </form>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            <?php endforeach; ?>
+
+                        </div>
+                    <?php endif; ?>
+                    </div>
+                             
+                        <div class="trip-expense-column">
+
+                            <div class="expense-log-header">
+                                <div>
+                                    <h5>Expense Log</h5>
+
+                                    <p class="expense-total">
+                                        Total Expenses:
+                                        <strong>NZD <span class="expense-total-value">0.00</span></strong>
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    class="add-expense-btn"
+                                    data-trip-id="<?php echo $tripId; ?>">
+                                    <span>+</span>
+                                    Add Expense
+                                </button>
+                            </div>
+
+                            <div
+                                class="expense-list"
+                                data-trip-id="<?php echo $tripId; ?>">
+
+                                <p class="expense-empty">
+                                    No expenses added yet.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="trip-details-section">
+                        <h5>Hotels</h5>
+                        <?php if (empty($tripDetails[$tripId]['hotels'])): ?>
+                            <p class="trip-details-empty">No hotel plans added for this trip yet.</p>
+                            <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="accommodation">Add Hotel</button>
+                        <?php else: ?>
+                            <div class="saved-items-grid">
+                                <?php foreach ($tripDetails[$tripId]['hotels'] as $hotel): ?>
+                                    <div class="saved-item-card saved-item-hotel-card">
+                                        <div class="saved-item-header">
+                                            <h4><?php echo htmlspecialchars($hotel['name']); ?></h4>
+                                            <span class="saved-item-badge">Hotel</span>
+                                        </div>
+                                        <div class="saved-item-meta">
+                                            <span><strong>Location:</strong> <?php echo htmlspecialchars($hotel['city'] . ', ' . $hotel['country']); ?></span>
+                                            <span><strong>Type:</strong> <?php echo htmlspecialchars($hotel['type']); ?></span>
+                                            <span><strong>Check-in:</strong> <?php echo htmlspecialchars($hotel['planned_check_in'] ? date('d M Y', strtotime($hotel['planned_check_in'])) : 'TBD'); ?></span>
+                                            <span><strong>Check-out:</strong> <?php echo htmlspecialchars($hotel['planned_check_out'] ? date('d M Y', strtotime($hotel['planned_check_out'])) : 'TBD'); ?></span>
+                                            <span><strong>Rating:</strong> <?php echo htmlspecialchars($hotel['rating'] ?: 'N/A'); ?></span>
+                                        </div>
+                                        <div class="saved-item-footer">
+                                            <span>NZD <?php echo htmlspecialchars(number_format($hotel['price_per_night_nzd'], 0)); ?> / night</span>
+                                            <span><?php echo htmlspecialchars($hotel['address']); ?></span>
+                                        </div>
+                                        <div class="saved-item-actions">
+                                            <form method="POST" onsubmit="return confirm('Remove this accommodation from the trip?');">
+                                                <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                                                <input type="hidden" name="item_type" value="hotel">
+                                                <input type="hidden" name="item_id" value="<?php echo htmlspecialchars($hotel['id']); ?>">
+                                                <button type="submit" name="delete_saved_item" class="saved-item-remove-btn">Remove</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="trip-details-section">
+                        <h5>Attractions</h5>
+                        <?php if (empty($tripDetails[$tripId]['attractions'])): ?>
+                            <p class="trip-details-empty">No attractions added for this trip yet.</p>
+                            <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="activities">Add Attraction</button>
+                        <?php else: ?>
+                            <div class="saved-items-grid">
+                                <?php foreach ($tripDetails[$tripId]['attractions'] as $attraction): ?>
+                                    <div class="saved-item-card saved-item-activity-card">
+                                        <div class="saved-item-header">
+                                            <h4><?php echo htmlspecialchars($attraction['name']); ?></h4>
+                                            <span class="saved-item-badge">Attraction</span>
+                                        </div>
+                                        <div class="saved-item-meta">
+                                            <span><strong>Category:</strong> <?php echo htmlspecialchars($attraction['category']); ?></span>
+                                            <span><strong>Location:</strong> <?php echo htmlspecialchars($attraction['city']); ?></span>
+                                            <!-- <span><strong>Date:</strong> <?php echo htmlspecialchars($attraction['activity_date'] ? date('d M Y', strtotime($attraction['activity_date'])) : 'TBD'); ?></span> -->
+                                             <div class="activity-date-setting">
+
+                                                <strong>Date:</strong>
+
+                                                <form method="POST" class="activity-date-form">
+
+                                                    <input
+                                                        type="hidden"
+                                                        name="trip_id"
+                                                        value="<?php echo $tripId; ?>"
+                                                    >
+
+                                                    <input
+                                                        type="hidden"
+                                                        name="activity_id"
+                                                        value="<?php echo (int)$attraction['id']; ?>"
+                                                    >
+
+                                                    <input
+                                                        type="date"
+                                                        name="activity_date"
+                                                        value="<?php echo htmlspecialchars($attraction['activity_date'] ?? ''); ?>"
+                                                        min="<?php echo htmlspecialchars($trip['start_date']); ?>"
+                                                        max="<?php echo htmlspecialchars($trip['end_date']); ?>"
+                                                        required
+                                                    >
+
+                                                    <button
+                                                        type="submit"
+                                                        name="save_activity_date"
+                                                        class="save-activity-date-btn"
+                                                    >
+                                                        Save
+                                                    </button>
+
+                                                </form>
+
+                                            </div>
+                                            <span><strong>Cost:</strong> NZD <?php echo htmlspecialchars(number_format($attraction['cost_nzd'], 0)); ?></span>
+                                        </div>
+                                        <p class="saved-item-description"><?php echo htmlspecialchars($attraction['description']); ?></p>
+                                        <div class="saved-item-actions">
+                                            <form method="POST" onsubmit="return confirm('Remove this activity from the trip?');">
+                                                <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                                                <input type="hidden" name="item_type" value="activity">
+                                                <input type="hidden" name="item_id" value="<?php echo htmlspecialchars($attraction['id']); ?>">
+                                                <button type="submit" name="delete_saved_item" class="saved-item-remove-btn">Remove</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="trip-details-section">
+                        <h5>Estimated Travel Duration</h5>
+
+                        <?php if (empty($tripDetails[$tripId]['flights'])): ?>
+
+                            <p class="trip-details-empty">
+                                Add trip items to estimate travel duration.
+                            </p>
+
+                        <?php else: ?>
+
+                            <?php
+                                $totalFlightMinutes = 0;
+
+                                foreach ($tripDetails[$tripId]['flights'] as $flight) {
+                                    $totalFlightMinutes += (int)$flight['duration_minutes'];
+                                }
+
+                                $totalHours = floor($totalFlightMinutes / 60);
+                                $totalMinutes = $totalFlightMinutes % 60;
+                            ?>
+
+                            <div class="saved-items-grid">
+
+                                <div class="saved-item-card saved-item-activity-card">
+
+                                    <div class="saved-item-header">
+
+                                        <h4>
+                                            <?php echo $totalHours . ' hours ' . $totalMinutes . ' minutes'; ?>
+                                        </h4>
+
+                                        <span class="saved-item-badge">
+                                            Estimate
+                                        </span>
+
+                                    </div>
+
+                                    <div class="saved-item-meta">
+
+                                        <?php foreach ($tripDetails[$tripId]['flights'] as $flight): ?>
+
+                                            <?php
+                                                $flightHours = floor($flight['duration_minutes'] / 60);
+                                                $flightMinutes = $flight['duration_minutes'] % 60;
+                                            ?>
+
+                                            <span>
+                                                <strong>
+                                                    <?php echo htmlspecialchars(
+                                                        $flight['departure_airport']
+                                                        . ' → '
+                                                        . $flight['arrival_airport']
+                                                    ); ?>:
+                                                </strong>
+
+                                                <?php echo $flightHours . 'h ' . $flightMinutes . 'm'; ?>
+                                            </span>
+
+                                        <?php endforeach; ?>
+
+                                        <span>
+                                            <strong>Airport to Hotel:</strong> --
+                                        </span>
+
+                                        <span>
+                                            <strong>Hotel to Activity:</strong> --
+                                        </span>
+
+                                        <span>
+                                            <strong>Activity to Airport:</strong> --
+                                        </span>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        <?php endif; ?>
+
+                    </div>
+
+                    <div class="trip-details-section">
+                        <h5>Budget</h5>
+                        <p style="margin: 4px 0 8px 0;">
+                            <strong>Total Cost:</strong> NZD <?php echo number_format($tripDetails[$tripId]['budget']['grand_total'] ?? 0, 2); ?>
+                        </p>
+                        <a href="budget.php?trip_id=<?php echo $tripId; ?>"
+                           style="background: none; font-weight: normal; font-size: 0.85em; color: #2563eb; text-decoration: underline; padding: 0;">
+                            View Budget Breakdown
+                        </a>
+                    </div>
+
+                    <div class="trip-details-section">
+                        <h5>Notes</h5>
+                        <form method="POST" class="trip-notes-form">
+                            <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                            <textarea name="trip_notes" rows="6" placeholder="Add notes for this trip..."><?php echo htmlspecialchars($tripDetails[$tripId]['notes'] !== '' ? $tripDetails[$tripId]['notes'] : ''); ?></textarea>
+                            <div class="trip-details-actions">
+                                <button type="submit" name="save_trip_notes" class="trip-action-btn">Save Notes</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -233,6 +1064,19 @@ try {
                         <input type="text" name="destination" value="<?php echo htmlspecialchars($_POST['destination'] ?? ''); ?>" required>
                     </label>
                     <label>
+    Trip Category
+    <select name="travel_style" required>
+        <?php
+                            $selectedCategory = $_POST['travel_style'] ?? 'Personal Trip';
+                            foreach (getTripCategories() as $key => $meta):
+                                ?>
+                                <option value="<?php echo htmlspecialchars($key); ?>" <?php echo $selectedCategory === $key ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($meta['label']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <label>
                         Start Date
                         <input type="date" name="start_date" value="<?php echo htmlspecialchars($_POST['start_date'] ?? ''); ?>" required>
                     </label>
@@ -241,8 +1085,8 @@ try {
                         <input type="date" name="end_date" value="<?php echo htmlspecialchars($_POST['end_date'] ?? ''); ?>" required>
                     </label>
                     <label>
-                        Group Size
-                        <input type="number" name="group_size" min="1" value="<?php echo htmlspecialchars($_POST['group_size'] ?? '1'); ?>" required>
+                        Add Notes
+                        <textarea rows="8" cols="40" name="notes" placeholder="Notes about the trip..."><?php echo htmlspecialchars($_POST['notes'] ?? ''); ?></textarea>
                     </label>
                     <div class="modal-actions">
                         <button type="button" class="modal-btn modal-cancel" id="cancel-trip-modal">Cancel</button>
@@ -255,11 +1099,212 @@ try {
 
 </div>
 
+ 
+<!-- Completed Trips -->
+ <?php include 'completedTrip.php'; ?>
+
+<div id="trip-details-modal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal-window trip-details-window">
+        <div class="modal-header">
+            <h3>Trip Details</h3>
+            <button id="close-trip-details-modal" class="modal-close" type="button">×</button>
+        </div>
+        <div class="modal-body" id="trip-details-content"></div>
+    </div>
+</div>
+
+<!-- Floating Calendar Button -->
+<button id="floating-calendar-btn" class="floating-calendar-btn" title="Open Calendar" aria-label="Open trip calendar">📅</button>
+
+<!-- Calendar Modal -->
+<div id="calendar-modal-backdrop" class="calendar-modal-backdrop">
+    <div class="calendar-modal">
+        <div class="calendar-modal-header">
+            <h2>Trip Calendar</h2>
+            <button id="calendar-close-btn" class="calendar-close-btn" type="button">×</button>
+        </div>
+        
+        <div class="calendar-controls">
+            <button class="calendar-nav-btn" id="prev-month">← Prev</button>
+            <div class="calendar-month-year" id="calendar-month-year"></div>
+            <button class="calendar-nav-btn" id="next-month">Next →</button>
+        </div>
+
+        <div class="calendar-weekdays">
+            <div class="calendar-weekday">Sun</div>
+            <div class="calendar-weekday">Mon</div>
+            <div class="calendar-weekday">Tue</div>
+            <div class="calendar-weekday">Wed</div>
+            <div class="calendar-weekday">Thu</div>
+            <div class="calendar-weekday">Fri</div>
+            <div class="calendar-weekday">Sat</div>
+        </div>
+
+        <div class="calendar-days" id="calendar-days"></div>
+
+        <div class="calendar-trips-list" id="calendar-trips-list"></div>
+    </div>
+</div>
+
+<div
+        id="expense-modal"
+        class="modal-backdrop"
+        aria-hidden="true">
+
+        <div class="modal-window expense-modal-window">
+
+            <div class="modal-header">
+                <h3 id="expense-modal-title">Add Expense</h3>
+
+                <button
+                    type="button"
+                    class="modal-close"
+                    id="close-expense-modal">
+                    ×
+                </button>
+            </div>
+
+            <div class="modal-body">
+
+                <form id="expense-form" class="expense-form">
+
+                    <input
+                        type="hidden"
+                        id="expense-trip-id">
+
+                    <input
+                        type="hidden"
+                        id="expense-edit-id">
+
+                    <label for="expense-type">
+                        Expense Type
+                    </label>
+
+                    <select id="expense-type" required>
+                        <option value="">Choose expense type</option>
+                        <option value="Food & Dining">Food & Dining</option>
+                        <option value="Transport">Transport</option>
+                        <option value="Accommodation">Accommodation</option>
+                        <option value="Activities">Activities</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Travel Fees">Travel Fees</option>
+                        <option value="Emergency">Emergency</option>
+                        <option value="Other">Other</option>
+                    </select>
+
+                    <label for="expense-name">
+                        Expense Name
+                    </label>
+
+                    <input
+                        type="text"
+                        id="expense-name"
+                        placeholder="e.g. Dinner at restaurant"
+                        required>
+
+                    <label for="expense-cost">
+                        Cost (NZD)
+                    </label>
+
+                    <input
+                        type="number"
+                        id="expense-cost"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="0.00"
+                        required>
+
+                    <div class="expense-form-error" id="expense-form-error"></div>
+
+                    <div class="modal-actions">
+
+                        <button
+                            type="button"
+                            class="modal-btn modal-cancel"
+                            id="cancel-expense-modal">
+                            Cancel
+                        </button>
+
+                        <button
+                            type="submit"
+                            class="modal-btn modal-save">
+                            Save Expense
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+<!-- Trips data for calendar (as JSON) -->
 <script>
+    const tripsData = <?php echo json_encode($trips); ?>;
+</script>
+
+<!-- Trip data for the "Export as PDF" feature (as JSON) -->
+<script>
+    const tripPdfData = <?php echo json_encode($pdfExportData); ?>;
+</script>
+
+<!--
+    "Export as PDF" prints via the browser's own print dialog, which already
+    gives a preview pane plus layout, copies and destination controls
+    (including "Save as PDF") — no PDF library needed. This container is
+    filled in per-trip by exportTripPDF() and is the only thing left visible
+    when printing; see the ".pdf-print-area" rules in dashboard.css.
+-->
+<div class="pdf-print-area" id="pdf-print-area"></div>
+
+<script>
+    // ---------- Hamburger menu behaviour ----------
+    const menuToggle = document.getElementById('menuToggle');
+    const menuPanel = document.getElementById('menuPanel');
+    const menuBackdrop = document.getElementById('menuBackdrop');
+
+    function openMenu() {
+        menuToggle.classList.add('open');
+        menuToggle.setAttribute('aria-expanded', 'true');
+        menuToggle.setAttribute('aria-label', 'Close menu');
+        menuPanel.classList.add('open');
+        menuPanel.setAttribute('aria-hidden', 'false');
+        menuBackdrop.classList.add('visible');
+    }
+
+    function closeMenu() {
+        menuToggle.classList.remove('open');
+        menuToggle.setAttribute('aria-expanded', 'false');
+        menuToggle.setAttribute('aria-label', 'Open menu');
+        menuPanel.classList.remove('open');
+        menuPanel.setAttribute('aria-hidden', 'true');
+        menuBackdrop.classList.remove('visible');
+    }
+
+    menuToggle.addEventListener('click', function () {
+        menuPanel.classList.contains('open') ? closeMenu() : openMenu();
+    });
+
+    menuBackdrop.addEventListener('click', closeMenu);
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            closeMenu();
+        }
+    });
+
+       // --------- Trip modal behaviour ----------
     const tripModal = document.getElementById('trip-modal');
     const openTripModal = document.getElementById('open-trip-modal');
     const closeTripModal = document.getElementById('close-trip-modal');
     const cancelTripModal = document.getElementById('cancel-trip-modal');
+    const tripDetailsModal = document.getElementById('trip-details-modal');
+    const tripDetailsContent = document.getElementById('trip-details-content');
+    const closeTripDetailsModal = document.getElementById('close-trip-details-modal');
 
     function showTripModal() {
         tripModal.style.display = 'flex';
@@ -271,22 +1316,532 @@ try {
         tripModal.setAttribute('aria-hidden', 'true');
     }
 
+    // Wipes any leftover draft/conflict data so the form opens blank next time
+    function clearTripFormFields() {
+        const tripForm = tripModal.querySelector('.modal-form');
+        if (!tripForm) return;
+
+        tripForm.querySelectorAll('input[type="text"], input[type="date"], textarea')
+            .forEach(function (field) {
+                field.value = '';
+            });
+
+        const categorySelect = tripForm.querySelector('select[name="travel_style"]');
+        if (categorySelect) categorySelect.value = 'Personal Trip'; // Reset to the first option
+        
+
+        const errorsBox = tripForm.parentElement.querySelector('.modal-errors');
+        if (errorsBox) errorsBox.remove();
+    }
+
+    // Single source of truth for "give up on this trip attempt"
+    function cancelTripModal_() {
+        hideTripModal();
+        clearTripFormFields();
+    }
+
+    function showTripDetailsModal() {
+        tripDetailsModal.style.display = 'flex';
+        tripDetailsModal.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideTripDetailsModal() {
+        tripDetailsModal.style.display = 'none';
+        tripDetailsModal.setAttribute('aria-hidden', 'true');
+        tripDetailsContent.innerHTML = '';
+    }
+
     openTripModal.addEventListener('click', function(event) {
         event.preventDefault();
         showTripModal();
     });
 
-    closeTripModal.addEventListener('click', hideTripModal);
-    cancelTripModal.addEventListener('click', hideTripModal);
+    closeTripModal.addEventListener('click', cancelTripModal_);
+    cancelTripModal.addEventListener('click', cancelTripModal_);
     tripModal.addEventListener('click', function(event) {
         if (event.target === tripModal) {
-            hideTripModal();
+            cancelTripModal_();
         }
     });
 
-    <?php if ($showModal): ?>
+
+    document.querySelectorAll('.view-details-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const tripId = this.getAttribute('data-trip-id');
+            const template = document.getElementById('trip-details-template-' + tripId);
+            if (template) {
+                tripDetailsContent.innerHTML = template.innerHTML;
+                showTripDetailsModal();
+            }
+        });
+    });
+
+    // ---------- Collapsible trip item cards ----------
+    tripDetailsContent.addEventListener('click', function(event) {
+        const header = event.target.closest('.collapsible-header');
+
+        if (!header) {
+            return;
+        }
+
+        const clickedCard = header.closest('.collapsible-card');
+
+        if (!clickedCard) {
+            return;
+        }
+
+        const wasExpanded = clickedCard.classList.contains('expanded');
+
+        // Close all cards first
+        tripDetailsContent
+            .querySelectorAll('.collapsible-card.expanded')
+            .forEach(function(card) {
+                card.classList.remove('expanded');
+            });
+
+        // If the clicked card was closed before, open it
+        if (!wasExpanded) {
+            clickedCard.classList.add('expanded');
+        }
+    });
+
+
+    // ---------- Expense Log UI ----------
+
+    const expenseModal =
+        document.getElementById('expense-modal');
+
+    const expenseForm =
+        document.getElementById('expense-form');
+
+    const expenseTripId =
+        document.getElementById('expense-trip-id');
+
+    const expenseEditId =
+        document.getElementById('expense-edit-id');
+
+    const expenseType =
+        document.getElementById('expense-type');
+
+    const expenseName =
+        document.getElementById('expense-name');
+
+    const expenseCost =
+        document.getElementById('expense-cost');
+
+    const expenseFormError =
+        document.getElementById('expense-form-error');
+
+    const expenseModalTitle =
+        document.getElementById('expense-modal-title');
+
+    const closeExpenseModal =
+        document.getElementById('close-expense-modal');
+
+    const cancelExpenseModal =
+        document.getElementById('cancel-expense-modal');
+
+
+    let expensesByTrip = {};
+
+    let nextExpenseId = 1;
+
+    function showExpenseModal(tripId) {
+
+        expenseForm.reset();
+
+        expenseTripId.value = tripId;
+        expenseEditId.value = '';
+
+        expenseFormError.textContent = '';
+        expenseModalTitle.textContent = 'Add Expense';
+
+        expenseModal.style.display = 'flex';
+        expenseModal.setAttribute('aria-hidden', 'false');
+    }
+
+
+    function hideExpenseModal() {
+
+        expenseModal.style.display = 'none';
+        expenseModal.setAttribute('aria-hidden', 'true');
+
+        expenseForm.reset();
+
+        expenseEditId.value = '';
+        expenseFormError.textContent = '';
+    }
+
+    tripDetailsContent.addEventListener('click', function(event) {
+
+        const button =
+            event.target.closest('.add-expense-btn');
+
+        if (!button) {
+            return;
+        }
+
+        const tripId =
+            button.getAttribute('data-trip-id');
+
+        showExpenseModal(tripId);
+    });
+
+    closeExpenseModal.addEventListener(
+        'click',
+        hideExpenseModal
+    );
+
+    cancelExpenseModal.addEventListener(
+        'click',
+        hideExpenseModal
+    );
+
+    expenseModal.addEventListener('click', function(event) {
+
+        if (event.target === expenseModal) {
+            hideExpenseModal();
+        }
+
+    });
+
+    expenseForm.addEventListener('submit', function(event) {
+
+        event.preventDefault();
+
+        const tripId =
+            expenseTripId.value;
+
+        const type =
+            expenseType.value;
+
+        const name =
+            expenseName.value.trim();
+
+        const cost =
+            Number(expenseCost.value);
+
+
+        if (!type) {
+            expenseFormError.textContent =
+                'Please choose an expense type.';
+            return;
+        }
+
+        if (!name) {
+            expenseFormError.textContent =
+                'Please enter an expense name.';
+            return;
+        }
+
+        if (!Number.isFinite(cost) || cost <= 0) {
+            expenseFormError.textContent =
+                'Please enter a valid cost.';
+            return;
+        }
+
+
+        if (!expensesByTrip[tripId]) {
+            expensesByTrip[tripId] = [];
+        }
+
+
+        const editId =
+            Number(expenseEditId.value);
+
+
+        if (editId) {
+
+            const existing =
+                expensesByTrip[tripId].find(function(expense) {
+                    return expense.id === editId;
+                });
+
+            if (existing) {
+                existing.type = type;
+                existing.name = name;
+                existing.cost = cost;
+            }
+
+        } else {
+
+            expensesByTrip[tripId].push({
+                id: nextExpenseId++,
+                type: type,
+                name: name,
+                cost: cost
+            });
+
+        }
+
+
+        renderExpenses(tripId);
+
+        hideExpenseModal();
+    });
+
+    function renderExpenses(tripId) {
+
+        const expenseList =
+            tripDetailsContent.querySelector(
+                `.expense-list[data-trip-id="${tripId}"]`
+            );
+
+        if (!expenseList) {
+            return;
+        }
+
+
+        const expenses =
+            expensesByTrip[tripId] || [];
+
+
+        if (expenses.length === 0) {
+
+            expenseList.innerHTML = `
+                <p class="expense-empty">
+                    No expenses added yet.
+                </p>
+            `;
+
+        } else {
+
+            expenseList.innerHTML =
+                expenses.map(function(expense) {
+
+                    return `
+                        <div
+                            class="expense-item"
+                            data-expense-id="${expense.id}">
+
+                            <div class="expense-item-main">
+
+                                <span class="expense-type">
+                                    ${escapeHTML(expense.type)}
+                                </span>
+
+                                <strong class="expense-name">
+                                    ${escapeHTML(expense.name)}
+                                </strong>
+
+                            </div>
+
+                            <div class="expense-item-right">
+
+                                <strong class="expense-cost">
+                                    NZD ${expense.cost.toFixed(2)}
+                                </strong>
+
+                                <div class="expense-actions">
+
+                                    <button
+                                        type="button"
+                                        class="expense-edit-btn"
+                                        data-trip-id="${tripId}"
+                                        data-expense-id="${expense.id}">
+                                        Edit
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="expense-delete-btn"
+                                        data-trip-id="${tripId}"
+                                        data-expense-id="${expense.id}">
+                                        Delete
+                                    </button>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+                    `;
+
+                }).join('');
+
+        }
+
+
+        const total =
+            expenses.reduce(function(sum, expense) {
+                return sum + expense.cost;
+            }, 0);
+
+
+        const totalDisplay =
+            tripDetailsContent.querySelector(
+                '.expense-total-value'
+            );
+
+        if (totalDisplay) {
+            totalDisplay.textContent =
+                total.toFixed(2);
+        }
+    }
+
+    function escapeHTML(value) {
+
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    tripDetailsContent.addEventListener('click', function(event) {
+        const button = event.target.closest('.trip-quick-add-btn');
+        if (!button) {
+            return;
+        }
+
+        const target = button.getAttribute('data-search-target');
+        const tabButton = document.querySelector('.tab-btn[data-tab="' + target + '"]');
+        hideTripDetailsModal();
+
+        if (tabButton) {
+            showSearchTab(target, tabButton);
+        }
+
+        window.setTimeout(function() {
+            const searchSection = document.querySelector('.search-container-dashBoard');
+            if (searchSection) {
+                searchSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            const panel = document.getElementById(target);
+            if (panel) {
+                const focusTarget = panel.querySelector('input, select, textarea');
+                if (focusTarget) {
+                    focusTarget.focus();
+                }
+            }
+        }, 120);
+    });
+
+    closeTripDetailsModal.addEventListener('click', hideTripDetailsModal);
+    tripDetailsModal.addEventListener('click', function(event) {
+        if (event.target === tripDetailsModal) {
+            hideTripDetailsModal();
+        }
+    });
+
+    // ---------- Export trip itinerary as PDF ----------
+
+    tripDetailsContent.addEventListener('click', function(event) {
+        const button = event.target.closest('.export-pdf-btn');
+        if (!button) {
+            return;
+        }
+        exportTripPDF(button.getAttribute('data-trip-id'));
+    });
+
+    function formatDateOnly(value) {
+        if (!value) return 'TBD';
+        const parsed = new Date(value.includes('T') ? value : value + 'T00:00:00');
+        if (isNaN(parsed)) return 'TBD';
+        return parsed.toLocaleDateString('en-NZ', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function formatDateTime(value) {
+        if (!value) return 'TBD';
+        const parsed = new Date(value.includes('T') ? value : value.replace(' ', 'T'));
+        if (isNaN(parsed)) return 'TBD';
+        const datePart = parsed.toLocaleDateString('en-NZ', { day: '2-digit', month: 'short', year: 'numeric' });
+        const timePart = parsed.toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit', hour12: false });
+        return datePart + ', ' + timePart;
+    }
+
+    function formatFlightDuration(minutes) {
+        const total = Number(minutes) || 0;
+        return Math.floor(total / 60) + 'h ' + (total % 60) + 'm';
+    }
+
+    function formatMoney(value) {
+        const amount = Number(value);
+        return 'NZD ' + (Number.isFinite(amount) ? amount.toFixed(2) : '0.00');
+    }
+
+    function printField(label, value) {
+        return '<p class="pdf-field"><strong>' + escapeHTML(label) + ':</strong> ' + (value || 'TBD') + '</p>';
+    }
+
+    function buildPrintableItinerary(trip) {
+        const flightsHtml = (!trip.flights || trip.flights.length === 0)
+            ? '<p class="pdf-empty">No flights have been added for this trip yet.</p>'
+            : trip.flights.map(function (flight) {
+                return '<div class="pdf-item">'
+                    + '<h3>' + escapeHTML(flight.airline + ' ' + flight.flight_number) + '</h3>'
+                    + printField('Route', escapeHTML(flight.departure_city + ' (' + flight.departure_airport + ') → ' + flight.arrival_city + ' (' + flight.arrival_airport + ')'))
+                    + printField('Departure', formatDateTime(flight.departure_datetime))
+                    + printField('Arrival', formatDateTime(flight.arrival_datetime))
+                    + printField('Duration / Stops', formatFlightDuration(flight.duration_minutes) + '  •  ' + (flight.stops == 0 ? 'Direct' : flight.stops + ' stop' + (flight.stops > 1 ? 's' : '')))
+                    + printField('Cabin / Price', escapeHTML(flight.cabin_class || 'Economy') + '  •  ' + formatMoney(flight.price_nzd))
+                    + '</div>';
+            }).join('');
+
+        const hotelsHtml = (!trip.hotels || trip.hotels.length === 0)
+            ? '<p class="pdf-empty">No accommodations have been added for this trip yet.</p>'
+            : trip.hotels.map(function (hotel) {
+                return '<div class="pdf-item">'
+                    + '<h3>' + escapeHTML(hotel.name + ' (' + hotel.type + ')') + '</h3>'
+                    + printField('Location', escapeHTML(hotel.city + ', ' + hotel.country))
+                    + printField('Address', escapeHTML(hotel.address))
+                    + printField('Check-in / Check-out', formatDateOnly(hotel.planned_check_in) + ' → ' + formatDateOnly(hotel.planned_check_out))
+                    + printField('Rating / Price', escapeHTML(hotel.rating || 'N/A') + '  •  ' + formatMoney(hotel.price_per_night_nzd) + ' / night')
+                    + '</div>';
+            }).join('');
+
+        const notesHtml = (!trip.notes || trip.notes.trim() === '')
+            ? '<p class="pdf-empty">No notes have been added for this trip yet.</p>'
+            : '<p class="pdf-note-text">' + escapeHTML(trip.notes) + '</p>';
+
+        return '<h1>' + escapeHTML(trip.title || 'Trip Itinerary') + '</h1>'
+            + '<p class="pdf-subtitle">CampusTrips — Trip Itinerary</p>'
+            + '<hr>'
+            + printField('Destination', escapeHTML(trip.destination))
+            + printField('Travel Dates', formatDateOnly(trip.start_date) + ' – ' + formatDateOnly(trip.end_date))
+            + printField('Group Size', 'Not specified yet')
+            + '<section><h2>Flights</h2>' + flightsHtml + '</section>'
+            + '<section><h2>Accommodations</h2>' + hotelsHtml + '</section>'
+            + '<section><h2>Notes</h2>' + notesHtml + '</section>';
+    }
+
+    function exportTripPDF(tripId) {
+        const trip = tripPdfData[tripId];
+        const printArea = document.getElementById('pdf-print-area');
+
+        if (!trip || !printArea) {
+            return;
+        }
+
+        printArea.innerHTML = buildPrintableItinerary(trip);
+
+        // Give the browser a moment to lay out the print content, then open
+        // its native print dialog. That dialog is the preview: it already
+        // offers layout (portrait/landscape), copies, and "Save as PDF" as
+        // a destination alongside any real printer, so no PDF library or
+        // custom preview UI is needed here.
+        window.requestAnimationFrame(function () {
+            window.print();
+        });
+    }
+
+    <?php if ($showModal && !isset($conflictingTripId)): ?>
         window.addEventListener('DOMContentLoaded', showTripModal);
     <?php endif; ?>
+
 </script>
+    <!-- Conflict detection js -->
+    <script>
+        window.TRIP_CONFLICT_DATA = {
+            hasConflict: <?php echo isset($conflictingTripId) ? 'true' : 'false'; ?>,
+            conflictId: <?php echo isset($conflictingTripId) ? $conflictingTripId : 'null'; ?>,
+                showModal: <?php echo $showModal ? 'true' : 'false'; ?>
+            };
+    </script>
+    <script src="../../assets/js/conflictAlert.js"></script>
+    <script src="../../assets/js/calendar.js"></script>
+   
 </body>
 </html>

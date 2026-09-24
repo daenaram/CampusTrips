@@ -173,6 +173,174 @@ body {
     background: #005ea6;
 }
 
+.save-status {
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.save-status.success {
+    background: #e8f7ed;
+    color: #1f7a3c;
+}
+
+.save-status.error {
+    background: #fdecec;
+    color: #b42318;
+}
+
+.trip-save-note {
+    margin-bottom: 1rem;
+    color: #666;
+}
+
+.trip-save-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.trip-select {
+    border: 1px solid #dce3ea;
+    border-radius: 8px;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.9rem;
+}
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(13, 17, 23, 0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 1000;
+}
+
+.modal-window {
+    background: #fff;
+    border-radius: 16px;
+    width: min(560px, 100%);
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.2);
+}
+
+.add-trip-window {
+    width: min(680px, 100%);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #eceff3;
+}
+
+.modal-close {
+    border: none;
+    background: transparent;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 1.25rem;
+}
+
+.add-trip-modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.add-trip-section {
+    border: 1px solid #e7ecf1;
+    border-radius: 12px;
+    padding: 1rem;
+    background: #fafbfc;
+}
+
+.add-trip-section h4 {
+    margin: 0 0 0.75rem 0;
+    color: #223040;
+}
+
+.trip-list-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.trip-card-selectable {
+    border: 1px solid #e3e6ea;
+    background: #fff;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    text-align: left;
+    width: 100%;
+}
+
+.trip-card-selectable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.trip-card-selectable.active {
+    border-color: #0078d4;
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.12);
+}
+
+.trip-option-empty {
+    margin: 0;
+    color: #6b7280;
+}
+
+.add-trip-modal-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.add-trip-modal-form input,
+.add-trip-modal-form textarea {
+    border: 1px solid #d9e0e8;
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    font: inherit;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding-top: 0.25rem;
+}
+
+.modal-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 0.65rem 1rem;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.modal-cancel {
+    background: #eef2f7;
+    color: #374151;
+}
+
+.modal-save {
+    background: #0078d4;
+    color: white;
+}
+
 .accommodation-results-container {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -504,4 +672,25 @@ body {
 .add-btn:hover {
     transform: scale(1.03);
     box-shadow: 0 4px 10px rgba(0,120,212,0.3);
+}
+
+.draggable-item {
+    cursor: grab;
+    user-select: none;
+}
+
+.draggable-item:active {
+    cursor: grabbing;
+}
+
+.drag-source {
+    opacity: 0.75;
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+}
+
+.trip-card-selectable.drop-target,
+.create-trip-button.drop-target {
+    border-color: #005ea6;
+    background: #eaf5ff;
+    box-shadow: 0 0 0 2px rgba(0, 94, 166, 0.16);
 }

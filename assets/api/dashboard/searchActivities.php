@@ -6,7 +6,7 @@ function searchActivities(PDO $pdo, array $data): array {
     $category = trim($data['category'] ?? '');
     $activityDate = trim($data['activity_date'] ?? '');
 
-    $query = 'SELECT * FROM activities';
+    $query = 'SELECT *, activity_date AS raw_activity_date, DATE_FORMAT(activity_date, "%d %M %Y") AS activity_date FROM activities';
     $conditions = [];
     $params = [];
 
@@ -16,7 +16,7 @@ function searchActivities(PDO $pdo, array $data): array {
     }
 
     if ($city !== '') {
-        $conditions[] = 'city LIKE :city';
+        $conditions[] = '(city LIKE :city OR country LIKE :city)';
         $params[':city'] = "%$city%";
     }
 
