@@ -27,8 +27,20 @@ try {
         reset_token_expiry DATETIME     NULL,
         failed_attempts     INT          DEFAULT 0,
         locked_out   DATETIME     DEFAULT NULL,
-        created_at         TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+        created_at         TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        profile_picture VARCHAR(255) NULL DEFAULT NULL
     )");
+
+    $profilePictureColumn = $pdo->query("
+        SHOW COLUMNS FROM users LIKE 'profile_picture'
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($profilePictureColumn)) {
+        $pdo->exec("
+            ALTER TABLE users
+            ADD COLUMN profile_picture VARCHAR(255) NULL DEFAULT NULL
+        ");
+    }
 
     // Trips
     $pdo->exec("CREATE TABLE IF NOT EXISTS trips (

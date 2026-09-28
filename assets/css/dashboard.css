@@ -885,6 +885,23 @@ body {
     font-size: 13px;
 }
 
+.expense-cost-row {
+    display: grid;
+    grid-template-columns: 1fr 100px;
+    gap: 10px;
+    width: 100%;
+}
+
+.expense-cost-row input,
+.expense-cost-row select {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#expense-currency {
+    cursor: pointer;
+}
+
 .expense-edit-btn {
     color: #2563eb;
 }

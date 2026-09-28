@@ -146,6 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_trip'])) {
     }
 }
 
+// Setting activity date
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_activity_date'])) {
 
     $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
@@ -241,6 +242,112 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_saved_item']))
     }
 }
 
+// Expenses
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_expense'])) {
+
+    $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+
+    $expenseType = trim($_POST['expense_type'] ?? '');
+    $expenseName = trim($_POST['expense_name'] ?? '');
+
+    $expenseAmount = filter_input(
+        INPUT_POST,
+        'expense_amount',
+        FILTER_VALIDATE_FLOAT
+    );
+
+    $expenseCurrency = strtoupper(
+        trim($_POST['expense_currency'] ?? 'NZD')
+    );
+
+    $allowedExpenseTypes = [
+        'Flights',
+        'Accommodation',
+        'Activities',
+        'Food',
+        'Transport',
+        'Insurance',
+        'Shopping',
+        'Other'
+    ];
+
+    // Validate the submitted fields
+    if (
+        !$tripId ||
+        $expenseName === '' ||
+        $expenseAmount === false ||
+        $expenseAmount <= 0 ||
+        !in_array($expenseType, $allowedExpenseTypes, true)
+    ) {
+        $errors[] = 'Please enter valid expense details.';
+    }
+
+    // Validate the currency
+    elseif (!isCurrencySupported($expenseCurrency)) {
+        $errors[] = 'Unsupported currency selected.';
+    }
+
+    // Make sure the trip belongs to this user
+    elseif (!tripBelongsToUser(
+        $pdo,
+        $tripId,
+        $_SESSION['user_id']
+    )) {
+        $errors[] = 'Trip could not be found.';
+    }
+
+    else {
+
+        try {
+
+            // Convert the entered amount into NZD
+            $amountNzd = convertToNZD(
+                $pdo,
+                $expenseAmount,
+                $expenseCurrency
+            );
+
+            // Save it into the SAME table used by
+            // Additional Budget Items
+            $stmt = $pdo->prepare("
+                INSERT INTO budget_items
+                (
+                    user_id,
+                    trip_id,
+                    category,
+                    item_name,
+                    amount,
+                    currency,
+                    amount_nzd
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+
+            $stmt->execute([
+                $_SESSION['user_id'],
+                $tripId,
+                $expenseType,
+                $expenseName,
+                $expenseAmount,
+                $expenseCurrency,
+                $amountNzd
+            ]);
+
+            // Prevent duplicate form submission if page is refreshed
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit();
+
+        } catch (Throwable $e) {
+
+            error_log(
+                'Expense save error: ' . $e->getMessage()
+            );
+
+            $errors[] = 'Unable to save expense.';
+        }
+    }
+}
+
 $sort = $_GET['sort'] ?? 'soonest';
 
 switch ($sort) {
@@ -294,7 +401,8 @@ try {
             'notes' => $trip['notes'] ?? '',
             'flights' => [],
             'hotels' => [],
-            'attractions' => []
+            'attractions' => [],
+            'expenses' => []
         ];
 
         // Fetch associated flights, hotels, and attractions for each trip
@@ -315,6 +423,10 @@ try {
 
         // Budget summary for the trip (flights + hotels + activities + custom items, all in NZD)
         $tripDetails[$tripId]['budget'] = getTripBudgetSummary($pdo, $tripId, $_SESSION['user_id']);
+
+        $expenseStmt = $pdo->prepare("SELECT id, category, item_name, amount, currency, amount_nzd FROM budget_items WHERE user_id = ? AND trip_id = ? ORDER BY id DESC");
+        $expenseStmt->execute([$_SESSION['user_id'], $tripId]);
+        $tripDetails[$tripId]['expenses'] = $expenseStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     
@@ -786,6 +898,13 @@ foreach ($trips as $trip) {
                     <?php endif; ?>
                     </div>
                              
+                    <?php
+                        $expenseTotalNZD = 0;
+
+                        foreach ($tripDetails[$tripId]['expenses'] as $expense) {
+                            $expenseTotalNZD += (float)$expense['amount_nzd'];
+                        }
+                        ?>
                         <div class="trip-expense-column">
 
                             <div class="expense-log-header">
@@ -794,7 +913,7 @@ foreach ($trips as $trip) {
 
                                     <p class="expense-total">
                                         Total Expenses:
-                                        <strong>NZD <span class="expense-total-value">0.00</span></strong>
+                                        <strong>NZD <span class="expense-total-value"><?php echo number_format($expenseTotalNZD, 2); ?></span></strong>
                                     </p>
                                 </div>
 
@@ -811,9 +930,58 @@ foreach ($trips as $trip) {
                                 class="expense-list"
                                 data-trip-id="<?php echo $tripId; ?>">
 
-                                <p class="expense-empty">
-                                    No expenses added yet.
-                                </p>
+                                <?php if (empty($tripDetails[$tripId]['expenses'])): ?>
+
+                                    <p class="expense-empty">
+                                        No expenses added yet.
+                                    </p>
+
+                                <?php else: ?>
+
+                                    <?php foreach ($tripDetails[$tripId]['expenses'] as $expense): ?>
+
+                                        <div
+                                            class="expense-item"
+                                            data-expense-id="<?php echo (int)$expense['id']; ?>">
+
+                                            <div class="expense-item-main">
+
+                                                <span class="expense-type">
+                                                    <?php echo htmlspecialchars($expense['category']); ?>
+                                                </span>
+
+                                                <strong class="expense-name">
+                                                    <?php echo htmlspecialchars($expense['item_name']); ?>
+                                                </strong>
+
+                                            </div>
+
+                                            <div class="expense-item-right">
+
+                                                <strong class="expense-cost">
+                                                    <?php
+                                                    echo htmlspecialchars($expense['currency'])
+                                                        . ' '
+                                                        . number_format((float)$expense['amount'], 2);
+                                                    ?>
+                                                </strong>
+
+                                                <?php if ($expense['currency'] !== 'NZD'): ?>
+                                                    <span class="expense-nzd-value">
+                                                        ≈ NZD <?php echo number_format(
+                                                            (float)$expense['amount_nzd'],
+                                                            2
+                                                        ); ?>
+                                                    </span>
+                                                <?php endif; ?>
+
+                                            </div>
+
+                                        </div>
+
+                                    <?php endforeach; ?>
+
+                                <?php endif; ?>
 
                             </div>
 
@@ -1166,30 +1334,37 @@ foreach ($trips as $trip) {
 
             <div class="modal-body">
 
-                <form id="expense-form" class="expense-form">
+                <form id="expense-form" class="expense-form" method="POST">
 
+                    <!-- Which trip this expense belongs to -->
                     <input
                         type="hidden"
-                        id="expense-trip-id">
+                        id="expense-trip-id"
+                        name="trip_id">
 
+                    <!-- Used later when editing an expense -->
                     <input
                         type="hidden"
-                        id="expense-edit-id">
+                        id="expense-edit-id"
+                        name="expense_edit_id">
 
                     <label for="expense-type">
                         Expense Type
                     </label>
 
-                    <select id="expense-type" required>
+                    <select
+                        id="expense-type"
+                        name="expense_type"
+                        required>
+                        
                         <option value="">Choose expense type</option>
-                        <option value="Food & Dining">Food & Dining</option>
-                        <option value="Transport">Transport</option>
+                        <option value="Flights">Flights</option>
                         <option value="Accommodation">Accommodation</option>
                         <option value="Activities">Activities</option>
+                        <option value="Food">Food</option>
+                        <option value="Transport">Transport</option>
+                        <option value="Insurance">Insurance</option>
                         <option value="Shopping">Shopping</option>
-                        <option value="Entertainment">Entertainment</option>
-                        <option value="Travel Fees">Travel Fees</option>
-                        <option value="Emergency">Emergency</option>
                         <option value="Other">Other</option>
                     </select>
 
@@ -1199,23 +1374,46 @@ foreach ($trips as $trip) {
 
                     <input
                         type="text"
-                        id="expense-name"
+                        id="expense_name"
+                        name="expense_name"
                         placeholder="e.g. Dinner at restaurant"
                         required>
 
                     <label for="expense-cost">
-                        Cost (NZD)
+                        Cost
                     </label>
 
-                    <input
-                        type="number"
-                        id="expense-cost"
-                        min="0.01"
-                        step="0.01"
-                        placeholder="0.00"
-                        required>
+                    <div class="expense-cost-row">
 
-                    <div class="expense-form-error" id="expense-form-error"></div>
+                        <input
+                            type="number"
+                            id="expense_cost"
+                            name="expense_amount"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            required>
+
+                        <select
+                            id="expense_currency"
+                            name="expense_currency"
+                            required>
+
+                            <option value="NZD">NZD</option>
+                            <option value="AUD">AUD</option>
+                            <option value="USD">USD</option>
+                            <option value="PHP">PHP</option>
+                            <option value="JPY">JPY</option>
+                            <option value="EUR">EUR</option>
+                            <option value="GBP">GBP</option>
+                        </select>
+
+                    </div>
+
+                    <div
+                        class="expense-form-error"
+                        id="expense-form-error">
+                    </div>
 
                     <div class="modal-actions">
 
@@ -1228,6 +1426,7 @@ foreach ($trips as $trip) {
 
                         <button
                             type="submit"
+                            name="add_expense"
                             class="modal-btn modal-save">
                             Save Expense
                         </button>
@@ -1424,10 +1623,13 @@ foreach ($trips as $trip) {
         document.getElementById('expense-type');
 
     const expenseName =
-        document.getElementById('expense-name');
+        document.getElementById('expense_name');
 
     const expenseCost =
-        document.getElementById('expense-cost');
+        document.getElementById('expense_cost');
+
+    const expenseCurrency =
+        document.getElementById('expense_currency');
 
     const expenseFormError =
         document.getElementById('expense-form-error');
@@ -1507,7 +1709,7 @@ foreach ($trips as $trip) {
 
     expenseForm.addEventListener('submit', function(event) {
 
-        event.preventDefault();
+        expenseFormError.textContent = '';
 
         const tripId =
             expenseTripId.value;
@@ -1521,63 +1723,54 @@ foreach ($trips as $trip) {
         const cost =
             Number(expenseCost.value);
 
+        const currency =
+            expenseCurrency.value;
+
+
+        if (!tripId) {
+            event.preventDefault();
+
+            expenseFormError.textContent =
+                'Unable to identify the selected trip.';
+            return;
+        }
+
 
         if (!type) {
+            event.preventDefault();
+
             expenseFormError.textContent =
                 'Please choose an expense type.';
             return;
         }
 
+
         if (!name) {
+            event.preventDefault();
+
             expenseFormError.textContent =
                 'Please enter an expense name.';
             return;
         }
 
+
         if (!Number.isFinite(cost) || cost <= 0) {
+            event.preventDefault();
+
             expenseFormError.textContent =
                 'Please enter a valid cost.';
             return;
         }
 
 
-        if (!expensesByTrip[tripId]) {
-            expensesByTrip[tripId] = [];
+        if (!currency) {
+            event.preventDefault();
+
+            expenseFormError.textContent =
+                'Please choose a currency.';
+            return;
         }
 
-
-        const editId =
-            Number(expenseEditId.value);
-
-
-        if (editId) {
-
-            const existing =
-                expensesByTrip[tripId].find(function(expense) {
-                    return expense.id === editId;
-                });
-
-            if (existing) {
-                existing.type = type;
-                existing.name = name;
-                existing.cost = cost;
-            }
-
-        } else {
-
-            expensesByTrip[tripId].push({
-                id: nextExpenseId++,
-                type: type,
-                name: name,
-                cost: cost
-            });
-
-        }
-
-
-        renderExpenses(tripId);
-
-        hideExpenseModal();
     });
 
     function renderExpenses(tripId) {
