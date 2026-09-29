@@ -19,8 +19,11 @@
     <h1>AUT Web-Based Travel Planner</h1>
     <h2>Login to Your Account</h2>
     <form method="POST" action="login.php">
-      
-      
+      <!-- Carries a page to return to after login (e.g. a shared trip link
+           opened in edit mode) — populated from ?redirect= by the script
+           below, and re-validated server-side in login.php before use. -->
+      <input type="hidden" id="redirectField" name="redirect" value="">
+
       <br><label for="email">Email:</label>
         <input type="email" id="email" name="email" required> 
     <br>
@@ -80,6 +83,14 @@
 
         if (params.get("account_deleted") === "true") {
             alert("Your account has been deleted successfully.");
+        }
+
+        // Carry a "come back here after login" target through to login.php,
+        // e.g. when arriving from a shared trip link's "Sign in to edit"
+        // prompt. login.php only ever honours a small whitelist of paths.
+        const redirectField = document.getElementById("redirectField");
+        if (redirectField && params.get("redirect")) {
+            redirectField.value = params.get("redirect");
         }
     </script>
 

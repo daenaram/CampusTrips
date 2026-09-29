@@ -20,6 +20,9 @@ require_once __DIR__ . '/../../assets/api/helpers/budgetHelper.php';
 //for trip category
 require_once __DIR__ . '/../../assets/api/helpers/categoryHelper.php';
 
+//for shareable trip links
+require_once __DIR__ . '/../../assets/api/helpers/shareHelper.php';
+
 $errors = [];
 $showModal = false;
 $tripActionMessage = '';
@@ -348,6 +351,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_expense'])) {
     }
 }
 
+// Handle creating a trip's first shareable link, or replacing its current
+// one. "Generate New Link" uses this same handler — it and the initial
+// "Create Shareable Link" action are the same operation: revoke whatever
+// link currently exists for the trip, then mint a brand new, unique one.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_share_link'])) {
+    $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+
+    if ($tripId && tripBelongsToUser($pdo, $tripId, $_SESSION['user_id'])) {
+        try {
+            createShareLink($pdo, $tripId, (int) $_SESSION['user_id']);
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit();
+        } catch (PDOException $e) {
+            error_log('Share link generation error: ' . $e->getMessage());
+            $errors[] = 'Unable to generate a shareable link right now.';
+        }
+    } else {
+        $errors[] = 'Unable to generate a shareable link right now.';
+    }
+}
+
+// Handle enabling/disabling the trip's current shareable link
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_share_link'])) {
+    $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+    $activate = ($_POST['activate'] ?? '') === '1';
+
+    if ($tripId && tripBelongsToUser($pdo, $tripId, $_SESSION['user_id'])) {
+        try {
+            setShareLinkActive($pdo, $tripId, (int) $_SESSION['user_id'], $activate);
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit();
+        } catch (PDOException $e) {
+            error_log('Share link toggle error: ' . $e->getMessage());
+            $errors[] = 'Unable to update the shareable link right now.';
+        }
+    } else {
+        $errors[] = 'Unable to update the shareable link right now.';
+    }
+}
+
+// Handle switching the trip's current link between view-only and editable.
+// Editing additionally always requires the visitor to sign in first — that
+// gate is enforced on the public share page itself, not here.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['set_share_access'])) {
+    $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+    $accessLevel = ($_POST['access_level'] ?? '') === 'edit' ? 'edit' : 'view';
+
+    if ($tripId && tripBelongsToUser($pdo, $tripId, $_SESSION['user_id'])) {
+        try {
+            setShareAccessLevel($pdo, $tripId, (int) $_SESSION['user_id'], $accessLevel);
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit();
+        } catch (PDOException $e) {
+            error_log('Share access level update error: ' . $e->getMessage());
+            $errors[] = 'Unable to update the link permission right now.';
+        }
+    } else {
+        $errors[] = 'Unable to update the link permission right now.';
+    }
+}
+
+// Handle switching a trip's privacy setting. Making a trip private blocks
+// its shared link (if any) even while that link is otherwise active.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['set_trip_privacy'])) {
+    $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
+    $isPrivate = ($_POST['is_private'] ?? '') === '1';
+
+    if ($tripId && tripBelongsToUser($pdo, $tripId, $_SESSION['user_id'])) {
+        try {
+            $stmt = $pdo->prepare("UPDATE trips SET is_private = ? WHERE id = ? AND user_id = ?");
+            $stmt->execute([$isPrivate ? 1 : 0, $tripId, $_SESSION['user_id']]);
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit();
+        } catch (PDOException $e) {
+            error_log('Trip privacy update error: ' . $e->getMessage());
+            $errors[] = 'Unable to update the trip privacy setting right now.';
+        }
+    } else {
+        $errors[] = 'Unable to update the trip privacy setting right now.';
+    }
+}
+
 $sort = $_GET['sort'] ?? 'soonest';
 
 switch ($sort) {
@@ -378,9 +463,9 @@ try {
 
     $currentDate = date("Y-m-d");
     $stmt = $pdo->prepare("
-        SELECT id, title, destination, start_date, end_date, notes, travel_style
+        SELECT id, title, destination, start_date, end_date, notes, travel_style, is_private
         FROM trips
-        WHERE user_id = ? 
+        WHERE user_id = ?
         ORDER BY $orderBy
     ");
 
@@ -404,6 +489,9 @@ try {
             'attractions' => [],
             'expenses' => []
         ];
+
+        // Current shareable link for the trip (if one has ever been generated)
+        $tripDetails[$tripId]['share'] = getCurrentShareForTrip($pdo, $tripId, (int) $_SESSION['user_id']);
 
         // Fetch associated flights, hotels, and attractions for each trip
         $flightStmt = $pdo->prepare("SELECT id, airline, flight_number, departure_city, arrival_city, departure_airport, arrival_airport, departure_datetime, arrival_datetime, duration_minutes, stops, cabin_class, price_nzd FROM saved_flights WHERE user_id = ? AND trip_id = ? ORDER BY departure_datetime ASC");
@@ -1203,6 +1291,107 @@ foreach ($trips as $trip) {
                             </div>
                         </form>
                     </div>
+
+                    <?php $share = $tripDetails[$tripId]['share']; ?>
+                    <div class="trip-details-section trip-share-section">
+                        <h5>Share Trip</h5>
+
+                        <div class="share-privacy-row">
+                            <span class="share-privacy-label">Trip Visibility</span>
+                            <form method="POST" class="privacy-toggle-form">
+                                <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                                <input type="hidden" name="is_private" value="<?php echo $trip['is_private'] ? '0' : '1'; ?>">
+                                <button
+                                    type="submit"
+                                    name="set_trip_privacy"
+                                    class="privacy-toggle-btn <?php echo $trip['is_private'] ? 'is-private' : 'is-public'; ?>"
+                                    title="Click to switch to <?php echo $trip['is_private'] ? 'Public' : 'Private'; ?>"
+                                >
+                                    <?php echo $trip['is_private'] ? 'Private' : 'Public'; ?>
+                                </button>
+                            </form>
+                        </div>
+                        <p class="trip-details-empty">
+                            <?php echo $trip['is_private']
+                                ? 'This trip is private — a shared link will not open for anyone, even while enabled.'
+                                : 'This trip is public — an enabled shared link below can be opened by anyone who has it.'; ?>
+                        </p>
+
+                        <?php if (!$share): ?>
+                            <form method="POST" class="share-generate-form">
+                                <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                                <button type="submit" name="generate_share_link" class="trip-action-btn">Create Shareable Link</button>
+                            </form>
+                        <?php else: ?>
+                            <?php $shareUrl = buildShareUrl($share['token']); ?>
+                            <div class="share-link-box">
+                                <input
+                                    type="text"
+                                    class="share-link-input"
+                                    readonly
+                                    value="<?php echo htmlspecialchars($shareUrl); ?>"
+                                    onclick="this.select();"
+                                    aria-label="Shareable trip link"
+                                >
+                                <button type="button" class="trip-action-link copy-share-link-btn" data-link="<?php echo htmlspecialchars($shareUrl); ?>">Copy Link</button>
+                            </div>
+
+                            <div class="share-privacy-row" style="margin-top:0.85rem;">
+                                <span class="share-privacy-label">Link Permission</span>
+                                <form method="POST" class="access-toggle-form">
+                                    <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                                    <input type="hidden" name="access_level" value="<?php echo $share['access_level'] === 'edit' ? 'view' : 'edit'; ?>">
+                                    <button
+                                        type="submit"
+                                        name="set_share_access"
+                                        class="access-toggle-btn <?php echo $share['access_level'] === 'edit' ? 'is-edit' : 'is-view'; ?>"
+                                        title="Click to switch to <?php echo $share['access_level'] === 'edit' ? 'Can View' : 'Can Edit'; ?>"
+                                    >
+                                        <?php echo $share['access_level'] === 'edit' ? 'Can Edit' : 'Can View'; ?>
+                                    </button>
+                                </form>
+                            </div>
+                            <p class="trip-details-empty">
+                                <?php echo $share['access_level'] === 'edit'
+                                    ? 'Anyone with this link can view it freely, but must sign in before they can add, remove, or change anything.'
+                                    : 'Anyone with this link can only view this trip — no sign-in grants them the ability to change it.'; ?>
+                            </p>
+
+                            <div class="share-meta-grid">
+                                <span>
+                                    <strong>Status:</strong>
+                                    <span class="share-status-badge <?php echo $share['is_active'] ? 'active' : 'disabled'; ?>">
+                                        <?php echo $share['is_active'] ? 'Active' : 'Disabled'; ?>
+                                    </span>
+                                </span>
+                                <span><strong>Generated:</strong> <?php echo date('d M Y, H:i', strtotime($share['created_at'])); ?></span>
+                                <span>
+                                    <strong>Views:</strong>
+                                    <?php echo ((int) $share['view_count']) > 0
+                                        ? number_format((int) $share['view_count']) . ' time' . ((int) $share['view_count'] > 1 ? 's' : '')
+                                        : 'Not viewed yet'; ?>
+                                </span>
+                            </div>
+
+                            <div class="share-actions">
+                                <form method="POST">
+                                    <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                                    <input type="hidden" name="activate" value="<?php echo $share['is_active'] ? '0' : '1'; ?>">
+                                    <button
+                                        type="submit"
+                                        name="toggle_share_link"
+                                        class="trip-action-btn <?php echo $share['is_active'] ? 'disable-share-btn' : ''; ?>"
+                                    >
+                                        <?php echo $share['is_active'] ? 'Disable Link' : 'Enable Link'; ?>
+                                    </button>
+                                </form>
+                                <form method="POST" onsubmit="return confirm('Generate a new link for this trip? The current link will stop working immediately and cannot be reactivated.');">
+                                    <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                                    <button type="submit" name="generate_share_link" class="trip-action-link">Generate New Link</button>
+                                </form>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
@@ -1927,6 +2116,47 @@ foreach ($trips as $trip) {
             return;
         }
         exportTripPDF(button.getAttribute('data-trip-id'));
+    });
+
+    // ---------- Copy shareable trip link ----------
+
+    tripDetailsContent.addEventListener('click', function(event) {
+        const button = event.target.closest('.copy-share-link-btn');
+        if (!button) {
+            return;
+        }
+
+        const link = button.getAttribute('data-link');
+        const originalLabel = button.textContent;
+
+        function showCopied() {
+            button.textContent = 'Copied!';
+            window.setTimeout(function () {
+                button.textContent = originalLabel;
+            }, 1800);
+        }
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(link).then(showCopied).catch(function () {
+                button.textContent = 'Copy failed';
+                window.setTimeout(function () { button.textContent = originalLabel; }, 1800);
+            });
+        } else {
+            // Fallback for non-HTTPS contexts (e.g. plain http://localhost)
+            // where the async Clipboard API isn't available.
+            const input = button.previousElementSibling;
+            if (input && input.select) {
+                input.select();
+                try {
+                    document.execCommand('copy');
+                    showCopied();
+                } catch (err) {
+                    button.textContent = 'Copy failed';
+                    window.setTimeout(function () { button.textContent = originalLabel; }, 1800);
+                }
+                window.getSelection().removeAllRanges();
+            }
+        }
     });
 
     function formatDateOnly(value) {
