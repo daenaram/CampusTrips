@@ -54,6 +54,35 @@
     border-color: #111827;
 }
 
+.budget-tab-shared-tag {
+    margin-left: 0.4rem;
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    background: #ede9fe;
+    color: #5b21b6;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+}
+
+.budget-trip-tab.active .budget-tab-shared-tag {
+    background: #ddd6fe;
+    color: #4c1d95;
+}
+
+.budget-shared-note {
+    display: block;
+    margin: 0.4rem 0 0.6rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: 10px;
+    background: #ede9fe;
+    color: #5b21b6;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
 .budget-summary-card,
 .budget-items-card {
     background: #fff;

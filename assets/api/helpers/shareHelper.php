@@ -194,15 +194,88 @@ function resolveUsableShare(PDO $pdo, string $token): ?array
 }
 
 /**
- * Whether a share grants edit access to a signed-in visitor right now.
- * Editing always additionally requires an authenticated session — a link
- * set to "edit" only unlocks controls once the visitor has signed in.
+ * Records that a signed-in user has taken up a share link, so the trip
+ * keeps showing up in their own dashboard (labelled as shared) on future
+ * visits without them needing the link again. One row per (trip, visitor);
+ * following a newer link for the same trip just updates it. Ongoing
+ * visibility is still re-checked live against trip_shares/trips every time
+ * (see getSharedTripsForUser()/getEditableTripOwnerId()) — this row is
+ * only "how we met", not a standing grant that survives the link being
+ * disabled, regenerated, or the trip going private.
  */
-function shareAllowsEditing(?array $share, ?int $sessionUserId): bool
+function grantShareRecipient(PDO $pdo, int $shareId, int $tripId, int $userId): void
 {
-    return $share !== null
-        && $share['access_level'] === 'edit'
-        && $sessionUserId !== null;
+    $stmt = $pdo->prepare("
+        INSERT INTO trip_share_recipients (share_id, trip_id, user_id)
+        VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE share_id = VALUES(share_id), last_accessed_at = NOW()
+    ");
+    $stmt->execute([$shareId, $tripId, $userId]);
+}
+
+/**
+ * Trips shared with this user that are still currently accessible (the
+ * link is active and the trip is public) — everything a stale or revoked
+ * grant would otherwise leave behind is filtered out here, live, every
+ * time. Shaped to drop straight into the same $trips array as the user's
+ * own trips, with is_owner/owner_name/link_access_level added on.
+ */
+function getSharedTripsForUser(PDO $pdo, int $userId): array
+{
+    $stmt = $pdo->prepare("
+        SELECT
+            t.id, t.title, t.destination, t.start_date, t.end_date, t.notes,
+            t.travel_style, t.is_private, t.created_at,
+            t.user_id AS owner_id, u.name AS owner_name,
+            ts.access_level AS link_access_level
+        FROM trip_share_recipients r
+        JOIN trip_shares ts ON ts.id = r.share_id
+        JOIN trips t ON t.id = r.trip_id
+        JOIN users u ON u.id = t.user_id
+        WHERE r.user_id = ? AND ts.is_active = 1 AND t.is_private = 0
+        ORDER BY r.last_accessed_at DESC
+    ");
+    $stmt->execute([$userId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * The user_id whose saved_flights/saved_accommodations/saved_activities/
+ * trips rows a mutation should target for this trip and this signed-in
+ * visitor: their own id if they own the trip, the trip owner's id if they
+ * hold a currently-active edit-permission share, or null if neither is
+ * true right now. Every edit-capable handler in Dashboard.php calls this
+ * fresh rather than trusting anything about "who can edit" from earlier in
+ * the request — a disabled/regenerated/privated share stops authorizing
+ * writes immediately, not just page views.
+ */
+function getEditableTripOwnerId(PDO $pdo, int $tripId, int $sessionUserId): ?int
+{
+    $stmt = $pdo->prepare("SELECT user_id FROM trips WHERE id = ?");
+    $stmt->execute([$tripId]);
+    $ownerId = $stmt->fetchColumn();
+
+    if ($ownerId === false) {
+        return null;
+    }
+
+    if ((int) $ownerId === $sessionUserId) {
+        return $sessionUserId;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT t.user_id AS owner_id
+        FROM trip_share_recipients r
+        JOIN trip_shares ts ON ts.id = r.share_id
+        JOIN trips t ON t.id = r.trip_id
+        WHERE r.trip_id = ? AND r.user_id = ?
+          AND ts.is_active = 1 AND ts.access_level = 'edit' AND t.is_private = 0
+        LIMIT 1
+    ");
+    $stmt->execute([$tripId, $sessionUserId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ? (int) $row['owner_id'] : null;
 }
 
 /**

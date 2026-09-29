@@ -2,9 +2,17 @@
 // Start session to access user data from login
 session_start();
 
-// Redirect to login if user is not authenticated
+// Redirect to login if user is not authenticated. A shared trip link
+// (?shared_token=...) survives this round trip via login.php's whitelisted
+// "redirect" param, so signing in lands back here with it still attached.
 if (!isset($_SESSION['user_id'])) {
-    header("Location: /AUT-Web-Based-Travel-Planner/Pages/UserAuthentication/loginForm.html");
+    $loginUrl = "/AUT-Web-Based-Travel-Planner/Pages/UserAuthentication/loginForm.html";
+    $incomingSharedToken = trim($_GET['shared_token'] ?? '');
+    if ($incomingSharedToken !== '') {
+        $returnTo = '/AUT-Web-Based-Travel-Planner/Pages/userDashboard/Dashboard.php?shared_token=' . urlencode($incomingSharedToken);
+        $loginUrl .= '?redirect=' . urlencode($returnTo);
+    }
+    header("Location: {$loginUrl}");
     exit();
 }
 
@@ -26,6 +34,40 @@ require_once __DIR__ . '/../../assets/api/helpers/shareHelper.php';
 $errors = [];
 $showModal = false;
 $tripActionMessage = '';
+$sharedLinkError = '';
+
+// A signed-in user arriving via someone else's shared trip link: record
+// that they now have access to it, then redirect to a clean URL (so the
+// raw token doesn't linger in the address bar/history) that auto-opens
+// the trip's details. Visibility going forward is still re-checked live
+// against trip_shares/trips on every load — see getSharedTripsForUser().
+if (isset($_GET['shared_token']) && trim($_GET['shared_token']) !== '') {
+    $incomingToken = trim($_GET['shared_token']);
+    try {
+        $incomingShare = resolveUsableShare($pdo, $incomingToken);
+        if ($incomingShare) {
+            grantShareRecipient($pdo, (int) $incomingShare['id'], (int) $incomingShare['trip_id'], (int) $_SESSION['user_id']);
+            header('Location: /AUT-Web-Based-Travel-Planner/Pages/userDashboard/Dashboard.php?open_trip=' . (int) $incomingShare['trip_id']);
+            exit();
+        }
+
+        // Not usable — figure out which of the three reasons, so the
+        // banner says something more specific than a generic "invalid".
+        $rawShare = getShareByToken($pdo, $incomingToken);
+        if (!$rawShare) {
+            $sharedLinkError = 'That shared trip link is no longer available.';
+        } elseif ($rawShare['trip_exists'] === null) {
+            $sharedLinkError = 'That trip no longer exists.';
+        } elseif ((int) $rawShare['is_private']) {
+            $sharedLinkError = 'That trip is no longer publicly accessible.';
+        } else {
+            $sharedLinkError = 'That shared trip link is no longer available.';
+        }
+    } catch (PDOException $e) {
+        error_log('Shared link acceptance error: ' . $e->getMessage());
+        $sharedLinkError = 'Unable to open that shared trip link right now.';
+    }
+}
 
 // Handle trip creation form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_trip'])) {
@@ -94,15 +136,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_trip'])) {
     }
 }
 
-// Handle trip notes saving
+// Handle trip notes saving — the trip's owner, or a signed-in visitor
+// currently holding edit access to it via a shared link.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trip_notes'])) {
     $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
     $tripNotes = trim($_POST['trip_notes'] ?? '');
+    $scopeOwnerId = $tripId ? getEditableTripOwnerId($pdo, $tripId, (int) $_SESSION['user_id']) : null;
 
-    if ($tripId && $tripId > 0) {
+    if ($tripId && $scopeOwnerId) {
         try {
             $stmt = $pdo->prepare("UPDATE trips SET notes = ? WHERE id = ? AND user_id = ?");
-            $stmt->execute([$tripNotes, $tripId, $_SESSION['user_id']]);
+            $stmt->execute([$tripNotes, $tripId, $scopeOwnerId]);
             $tripActionMessage = 'Trip notes saved.';
             header('Location: ' . $_SERVER['REQUEST_URI']);
             exit();
@@ -149,14 +193,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_trip'])) {
     }
 }
 
-// Setting activity date
+// Setting activity date — owner, or a signed-in visitor with edit access
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_activity_date'])) {
 
     $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
     $activityId = filter_input(INPUT_POST, 'activity_id', FILTER_VALIDATE_INT);
     $activityDate = trim($_POST['activity_date'] ?? '');
+    $scopeOwnerId = $tripId ? getEditableTripOwnerId($pdo, $tripId, (int) $_SESSION['user_id']) : null;
 
-    if (!$tripId || !$activityId || $activityDate === '') {
+    if (!$tripId || !$scopeOwnerId || !$activityId || $activityDate === '') {
         $errors[] = 'Please choose a valid activity date.';
     } else {
         try {
@@ -170,7 +215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_activity_date'])
 
             $tripDateStmt->execute([
                 $tripId,
-                $_SESSION['user_id']
+                $scopeOwnerId
             ]);
 
             $selectedTrip = $tripDateStmt->fetch(PDO::FETCH_ASSOC);
@@ -198,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_activity_date'])
                     $activityDate,
                     $activityId,
                     $tripId,
-                    $_SESSION['user_id']
+                    $scopeOwnerId
                 ]);
 
                 header('Location: ' . $_SERVER['REQUEST_URI']);
@@ -212,13 +257,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_activity_date'])
     }
 }
 
-// Handle saved item deletion
+// Handle saved item deletion — owner, or a signed-in visitor with edit access
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_saved_item'])) {
     $tripId = filter_input(INPUT_POST, 'trip_id', FILTER_VALIDATE_INT);
     $itemId = filter_input(INPUT_POST, 'item_id', FILTER_VALIDATE_INT);
     $itemType = $_POST['item_type'] ?? '';
+    $scopeOwnerId = $tripId ? getEditableTripOwnerId($pdo, $tripId, (int) $_SESSION['user_id']) : null;
 
-    if ($tripId && $itemId && in_array($itemType, ['flight', 'hotel', 'activity'], true)) {
+    if ($tripId && $scopeOwnerId && $itemId && in_array($itemType, ['flight', 'hotel', 'activity'], true)) {
         try {
             switch ($itemType) {
                 case 'flight':
@@ -232,7 +278,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_saved_item']))
                     break;
             }
             if (isset($stmt)) {
-                $stmt->execute([$itemId, $_SESSION['user_id'], $tripId]);
+                $stmt->execute([$itemId, $scopeOwnerId, $tripId]);
                 header('Location: ' . $_SERVER['REQUEST_URI']);
                 exit();
             }
@@ -263,6 +309,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_expense'])) {
         trim($_POST['expense_currency'] ?? 'NZD')
     );
 
+    $scopeOwnerId = $tripId ? getEditableTripOwnerId($pdo, $tripId, (int) $_SESSION['user_id']) : null;
+
     $allowedExpenseTypes = [
         'Flights',
         'Accommodation',
@@ -290,12 +338,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_expense'])) {
         $errors[] = 'Unsupported currency selected.';
     }
 
-    // Make sure the trip belongs to this user
-    elseif (!tripBelongsToUser(
-        $pdo,
-        $tripId,
-        $_SESSION['user_id']
-    )) {
+    // Owner, or a signed-in visitor currently holding edit access via a shared link
+    elseif (!$scopeOwnerId) {
         $errors[] = 'Trip could not be found.';
     }
 
@@ -327,7 +371,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_expense'])) {
             ");
 
             $stmt->execute([
-                $_SESSION['user_id'],
+                $scopeOwnerId,
                 $tripId,
                 $expenseType,
                 $expenseName,
@@ -457,22 +501,54 @@ $trips = [];
 $allTrips = [];
 $tripDetails = [];
 
-// Fetch trips and their associated details
+// Fetch the user's own trips, plus any trips shared with them that are
+// still currently accessible, and merge the two into one list.
 
 try {
 
     $currentDate = date("Y-m-d");
+
     $stmt = $pdo->prepare("
-        SELECT id, title, destination, start_date, end_date, notes, travel_style, is_private
+        SELECT id, title, destination, start_date, end_date, notes, travel_style, is_private, created_at
         FROM trips
         WHERE user_id = ?
         ORDER BY $orderBy
     ");
-
     $stmt->execute([$_SESSION['user_id']]);
-    $allTrips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $ownedTrips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($ownedTrips as &$ownedTrip) {
+        $ownedTrip['is_owner'] = true;
+        $ownedTrip['owner_id'] = (int) $_SESSION['user_id'];
+        $ownedTrip['owner_name'] = null;
+        $ownedTrip['link_access_level'] = null;
+    }
+    unset($ownedTrip);
 
-    $trips = $allTrips;
+    $sharedTrips = getSharedTripsForUser($pdo, (int) $_SESSION['user_id']);
+    foreach ($sharedTrips as &$sharedTrip) {
+        $sharedTrip['is_owner'] = false;
+        $sharedTrip['owner_id'] = (int) $sharedTrip['owner_id'];
+    }
+    unset($sharedTrip);
+
+    // The two queries can't share one ORDER BY, so sort the merged list in
+    // PHP using the same rule the dropdown offers.
+    $trips = array_merge($ownedTrips, $sharedTrips);
+    usort($trips, function ($a, $b) use ($sort) {
+        switch ($sort) {
+            case 'newest':
+                return strcmp($b['created_at'] ?? '', $a['created_at'] ?? '');
+            case 'oldest':
+                return strcmp($a['created_at'] ?? '', $b['created_at'] ?? '');
+            case 'latest':
+                return strcmp($b['start_date'], $a['start_date']);
+            case 'soonest':
+            default:
+                return strcmp($a['start_date'], $b['start_date']);
+        }
+    });
+
+    $allTrips = $trips;
 
     //To deleted completed trips from "Your Saved Trips" section, we filter out trips that have already ended.
     $currentDate = date('Y-m-d');
@@ -481,43 +557,56 @@ try {
     });
 
     foreach ($trips as $trip) {
-        $tripId = (int)$trip['id'];
+        $tripId = (int) $trip['id'];
+
+        // Every saved_flights/saved_accommodations/... row for a trip is
+        // stored under its OWNER's user_id, regardless of who is looking
+        // at it right now — a shared trip's items still belong to whoever
+        // created the trip.
+        $scopeUserId = $trip['is_owner'] ? (int) $_SESSION['user_id'] : (int) $trip['owner_id'];
+
         $tripDetails[$tripId] = [
             'notes' => $trip['notes'] ?? '',
             'flights' => [],
             'hotels' => [],
             'attractions' => [],
-            'expenses' => []
+            'expenses' => [],
+            'is_owner' => $trip['is_owner'],
+            'owner_name' => $trip['owner_name'],
+            // 'owner' (full control), 'edit' (shared, can manage saved items/notes), or 'view' (shared, read-only)
+            'access_level' => $trip['is_owner'] ? 'owner' : $trip['link_access_level'],
         ];
 
-        // Current shareable link for the trip (if one has ever been generated)
-        $tripDetails[$tripId]['share'] = getCurrentShareForTrip($pdo, $tripId, (int) $_SESSION['user_id']);
+        // Share management (the link itself) is an owner-only feature
+        $tripDetails[$tripId]['share'] = $trip['is_owner']
+            ? getCurrentShareForTrip($pdo, $tripId, $scopeUserId)
+            : null;
 
         // Fetch associated flights, hotels, and attractions for each trip
         $flightStmt = $pdo->prepare("SELECT id, airline, flight_number, departure_city, arrival_city, departure_airport, arrival_airport, departure_datetime, arrival_datetime, duration_minutes, stops, cabin_class, price_nzd FROM saved_flights WHERE user_id = ? AND trip_id = ? ORDER BY departure_datetime ASC");
-        $flightStmt->execute([$_SESSION['user_id'], $tripId]);
+        $flightStmt->execute([$scopeUserId, $tripId]);
         $tripDetails[$tripId]['flights'] = $flightStmt->fetchAll(PDO::FETCH_ASSOC);
 
         $hotelStmt = $pdo->prepare("SELECT id, name, type, city, country, address, planned_check_in, planned_check_out, price_per_night_nzd, rating, notes FROM saved_accommodations WHERE user_id = ? AND trip_id = ? ORDER BY planned_check_in ASC, planned_check_out ASC");
-        $hotelStmt->execute([$_SESSION['user_id'], $tripId]);
+        $hotelStmt->execute([$scopeUserId, $tripId]);
         $tripDetails[$tripId]['hotels'] = $hotelStmt->fetchAll(PDO::FETCH_ASSOC);
 
         $activityStmt = $pdo->prepare("SELECT id, name, city, category, activity_date, cost_nzd, description, notes FROM saved_activities WHERE user_id = ? AND trip_id = ? ORDER BY activity_date ASC, name ASC");
-        $activityStmt->execute([$_SESSION['user_id'], $tripId]);
+        $activityStmt->execute([$scopeUserId, $tripId]);
         $tripDetails[$tripId]['attractions'] = $activityStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Conflict detection for the trip
         $tripDetails[$tripId]['conflicts'] = getTripConflicts($tripDetails[$tripId]['flights'], $tripDetails[$tripId]['hotels'], $tripDetails[$tripId]['attractions']);
 
         // Budget summary for the trip (flights + hotels + activities + custom items, all in NZD)
-        $tripDetails[$tripId]['budget'] = getTripBudgetSummary($pdo, $tripId, $_SESSION['user_id']);
+        $tripDetails[$tripId]['budget'] = getTripBudgetSummary($pdo, $tripId, $scopeUserId);
 
         $expenseStmt = $pdo->prepare("SELECT id, category, item_name, amount, currency, amount_nzd FROM budget_items WHERE user_id = ? AND trip_id = ? ORDER BY id DESC");
-        $expenseStmt->execute([$_SESSION['user_id'], $tripId]);
+        $expenseStmt->execute([$scopeUserId, $tripId]);
         $tripDetails[$tripId]['expenses'] = $expenseStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    
+
 
 } catch (PDOException $e) {
     error_log('Trip load error: ' . $e->getMessage());
@@ -609,6 +698,17 @@ foreach ($trips as $trip) {
         <?php endif; ?>
     </div>
 </div>
+
+<?php if ($tripActionMessage !== '' || $sharedLinkError !== ''): ?>
+    <div class="dashboard-flash-banner">
+        <?php if ($tripActionMessage !== ''): ?>
+            <p class="dashboard-flash-success"><?php echo htmlspecialchars($tripActionMessage); ?></p>
+        <?php endif; ?>
+        <?php if ($sharedLinkError !== ''): ?>
+            <p class="dashboard-flash-error"><?php echo htmlspecialchars($sharedLinkError); ?></p>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
 
 <!-- Search bar prototype -->
 
@@ -750,11 +850,19 @@ foreach ($trips as $trip) {
                     }
                 $tripId = (int) $trip['id'];
                 $category = getCategoryDetails($trip['travel_style']);
+                $isOwner = $tripDetails[$tripId]['is_owner'];
+                $canManage = $isOwner || ($tripDetails[$tripId]['access_level'] === 'edit');
+                $ownerName = $tripDetails[$tripId]['owner_name'];
                 ?>
                 <div class="trip-card saved-trip-card">
                     <span class="bookmark-ribbon" style="--ribbon-color: <?php echo htmlspecialchars($category['color']); ?>" title="<?php echo htmlspecialchars($category['label']); ?>">
                         <span class="bookmark-ribbon-label"><?php echo htmlspecialchars(strtoupper(substr($category['label'], 0, 1))); ?></span>
                     </span>
+                    <?php if (!$isOwner): ?>
+                        <span class="shared-with-badge" title="Shared by <?php echo htmlspecialchars($ownerName); ?>">
+                            🔗 Shared by <?php echo htmlspecialchars($ownerName); ?>
+                        </span>
+                    <?php endif; ?>
                     <div class="trip-card-title"><?php echo htmlspecialchars($trip['title']); ?></div>
                     <div class="trip-card-detail">
                         <strong>Destination</strong>
@@ -796,10 +904,12 @@ foreach ($trips as $trip) {
                     <div class="trip-card-actions"
                     style="display:flex; justify-content: space-between; align-items: center; margin-top: 15px;">
                         <button type="button" class="trip-action-btn view-details-btn" data-trip-id="<?php echo $tripId; ?>">View Details</button>
-                        <form method="POST" class="trip-delete-form" onsubmit="return confirm('Delete this trip? This cannot be undone.');">
-                            <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
-                            <button type="submit" name="delete_trip" class="trip-action-btn delete-trip-btn">Delete Trip</button>
-                        </form>
+                        <?php if ($isOwner): ?>
+                            <form method="POST" class="trip-delete-form" onsubmit="return confirm('Delete this trip? This cannot be undone.');">
+                                <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                                <button type="submit" name="delete_trip" class="trip-action-btn delete-trip-btn">Delete Trip</button>
+                            </form>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <div class="trip-details-template" id="trip-details-template-<?php echo $tripId; ?>" style="display:none;">
@@ -808,6 +918,12 @@ foreach ($trips as $trip) {
                             <h4><?php echo htmlspecialchars($trip['title']); ?></h4>
                             <button type="button" class="trip-action-btn export-pdf-btn" data-trip-id="<?php echo $tripId; ?>">Export as PDF</button>
                         </div>
+                        <?php if (!$isOwner): ?>
+                            <p class="shared-with-note">
+                                🔗 Shared by <?php echo htmlspecialchars($ownerName); ?> —
+                                <?php echo $canManage ? 'you can edit this trip.' : 'view only.'; ?>
+                            </p>
+                        <?php endif; ?>
                         <p><strong>Destination:</strong> <?php echo htmlspecialchars($trip['destination']); ?></p>
                         <p><strong>Dates:</strong> <?php echo htmlspecialchars($trip['start_date']); ?> → <?php echo htmlspecialchars($trip['end_date']); ?></p>
                         <p><strong>Trip Duration:</strong> <?php echo $duration; ?></p>
@@ -817,7 +933,9 @@ foreach ($trips as $trip) {
                         <div class="trip-flights-column">
                             <h5>Flights</h5><?php if (empty($tripDetails[$tripId]['flights'])): ?>
                                 <p class="trip-details-empty">No flights added for this trip yet.</p>
-                                <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="flights">Add Flight</button>
+                                <?php if ($isOwner): ?>
+                                    <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="flights">Add Flight</button>
+                                <?php endif; ?>
                             <?php else: ?>
 
                                 <div class="saved-items-grid flight-stack">
@@ -939,6 +1057,7 @@ foreach ($trips as $trip) {
 
                                         </div>
 
+                                        <?php if ($canManage): ?>
                                         <div class="saved-item-actions">
 
                                             <form
@@ -975,6 +1094,7 @@ foreach ($trips as $trip) {
                                             </form>
 
                                         </div>
+                                        <?php endif; ?>
 
                                     </div>
 
@@ -1005,6 +1125,7 @@ foreach ($trips as $trip) {
                                     </p>
                                 </div>
 
+                                <?php if ($canManage): ?>
                                 <button
                                     type="button"
                                     class="add-expense-btn"
@@ -1012,6 +1133,7 @@ foreach ($trips as $trip) {
                                     <span>+</span>
                                     Add Expense
                                 </button>
+                                <?php endif; ?>
                             </div>
 
                             <div
@@ -1081,7 +1203,9 @@ foreach ($trips as $trip) {
                         <h5>Hotels</h5>
                         <?php if (empty($tripDetails[$tripId]['hotels'])): ?>
                             <p class="trip-details-empty">No hotel plans added for this trip yet.</p>
-                            <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="accommodation">Add Hotel</button>
+                            <?php if ($isOwner): ?>
+                                <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="accommodation">Add Hotel</button>
+                            <?php endif; ?>
                         <?php else: ?>
                             <div class="saved-items-grid">
                                 <?php foreach ($tripDetails[$tripId]['hotels'] as $hotel): ?>
@@ -1101,6 +1225,7 @@ foreach ($trips as $trip) {
                                             <span>NZD <?php echo htmlspecialchars(number_format($hotel['price_per_night_nzd'], 0)); ?> / night</span>
                                             <span><?php echo htmlspecialchars($hotel['address']); ?></span>
                                         </div>
+                                        <?php if ($canManage): ?>
                                         <div class="saved-item-actions">
                                             <form method="POST" onsubmit="return confirm('Remove this accommodation from the trip?');">
                                                 <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
@@ -1109,6 +1234,7 @@ foreach ($trips as $trip) {
                                                 <button type="submit" name="delete_saved_item" class="saved-item-remove-btn">Remove</button>
                                             </form>
                                         </div>
+                                        <?php endif; ?>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
@@ -1119,7 +1245,9 @@ foreach ($trips as $trip) {
                         <h5>Attractions</h5>
                         <?php if (empty($tripDetails[$tripId]['attractions'])): ?>
                             <p class="trip-details-empty">No attractions added for this trip yet.</p>
-                            <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="activities">Add Attraction</button>
+                            <?php if ($isOwner): ?>
+                                <button type="button" class="trip-action-link trip-quick-add-btn" data-search-target="activities">Add Attraction</button>
+                            <?php endif; ?>
                         <?php else: ?>
                             <div class="saved-items-grid">
                                 <?php foreach ($tripDetails[$tripId]['attractions'] as $attraction): ?>
@@ -1131,7 +1259,7 @@ foreach ($trips as $trip) {
                                         <div class="saved-item-meta">
                                             <span><strong>Category:</strong> <?php echo htmlspecialchars($attraction['category']); ?></span>
                                             <span><strong>Location:</strong> <?php echo htmlspecialchars($attraction['city']); ?></span>
-                                            <!-- <span><strong>Date:</strong> <?php echo htmlspecialchars($attraction['activity_date'] ? date('d M Y', strtotime($attraction['activity_date'])) : 'TBD'); ?></span> -->
+                                            <?php if ($canManage): ?>
                                              <div class="activity-date-setting">
 
                                                 <strong>Date:</strong>
@@ -1170,9 +1298,13 @@ foreach ($trips as $trip) {
                                                 </form>
 
                                             </div>
+                                            <?php else: ?>
+                                                <span><strong>Date:</strong> <?php echo htmlspecialchars($attraction['activity_date'] ? date('d M Y', strtotime($attraction['activity_date'])) : 'TBD'); ?></span>
+                                            <?php endif; ?>
                                             <span><strong>Cost:</strong> NZD <?php echo htmlspecialchars(number_format($attraction['cost_nzd'], 0)); ?></span>
                                         </div>
                                         <p class="saved-item-description"><?php echo htmlspecialchars($attraction['description']); ?></p>
+                                        <?php if ($canManage): ?>
                                         <div class="saved-item-actions">
                                             <form method="POST" onsubmit="return confirm('Remove this activity from the trip?');">
                                                 <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
@@ -1181,6 +1313,7 @@ foreach ($trips as $trip) {
                                                 <button type="submit" name="delete_saved_item" class="saved-item-remove-btn">Remove</button>
                                             </form>
                                         </div>
+                                        <?php endif; ?>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
@@ -1275,23 +1408,32 @@ foreach ($trips as $trip) {
                         <p style="margin: 4px 0 8px 0;">
                             <strong>Total Cost:</strong> NZD <?php echo number_format($tripDetails[$tripId]['budget']['grand_total'] ?? 0, 2); ?>
                         </p>
-                        <a href="budget.php?trip_id=<?php echo $tripId; ?>"
-                           style="background: none; font-weight: normal; font-size: 0.85em; color: #2563eb; text-decoration: underline; padding: 0;">
-                            View Budget Breakdown
-                        </a>
+                        <?php if ($canManage): ?>
+                            <a href="budget.php?trip_id=<?php echo $tripId; ?>"
+                               style="background: none; font-weight: normal; font-size: 0.85em; color: #2563eb; text-decoration: underline; padding: 0;">
+                                View Budget Breakdown
+                            </a>
+                        <?php endif; ?>
                     </div>
 
                     <div class="trip-details-section">
                         <h5>Notes</h5>
-                        <form method="POST" class="trip-notes-form">
-                            <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
-                            <textarea name="trip_notes" rows="6" placeholder="Add notes for this trip..."><?php echo htmlspecialchars($tripDetails[$tripId]['notes'] !== '' ? $tripDetails[$tripId]['notes'] : ''); ?></textarea>
-                            <div class="trip-details-actions">
-                                <button type="submit" name="save_trip_notes" class="trip-action-btn">Save Notes</button>
-                            </div>
-                        </form>
+                        <?php if ($canManage): ?>
+                            <form method="POST" class="trip-notes-form">
+                                <input type="hidden" name="trip_id" value="<?php echo $tripId; ?>">
+                                <textarea name="trip_notes" rows="6" placeholder="Add notes for this trip..."><?php echo htmlspecialchars($tripDetails[$tripId]['notes'] !== '' ? $tripDetails[$tripId]['notes'] : ''); ?></textarea>
+                                <div class="trip-details-actions">
+                                    <button type="submit" name="save_trip_notes" class="trip-action-btn">Save Notes</button>
+                                </div>
+                            </form>
+                        <?php elseif ($tripDetails[$tripId]['notes'] === ''): ?>
+                            <p class="trip-details-empty">No notes have been added for this trip yet.</p>
+                        <?php else: ?>
+                            <p class="shared-trip-notes"><?php echo nl2br(htmlspecialchars($tripDetails[$tripId]['notes'])); ?></p>
+                        <?php endif; ?>
                     </div>
 
+                    <?php if ($isOwner): ?>
                     <?php $share = $tripDetails[$tripId]['share']; ?>
                     <div class="trip-details-section trip-share-section">
                         <h5>Share Trip</h5>
@@ -1392,6 +1534,7 @@ foreach ($trips as $trip) {
                             </div>
                         <?php endif; ?>
                     </div>
+                    <?php endif; ?>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
@@ -1763,6 +1906,17 @@ foreach ($trips as $trip) {
             }
         });
     });
+
+    <?php if (isset($_GET['open_trip'])): ?>
+        // Arrived here via a shared trip link — open that trip's details
+        // straight away instead of leaving the visitor to find it in the list.
+        window.addEventListener('DOMContentLoaded', function () {
+            const openBtn = document.querySelector('.view-details-btn[data-trip-id="<?php echo (int) $_GET['open_trip']; ?>"]');
+            if (openBtn) {
+                openBtn.click();
+            }
+        });
+    <?php endif; ?>
 
     // ---------- Collapsible trip item cards ----------
     tripDetailsContent.addEventListener('click', function(event) {
