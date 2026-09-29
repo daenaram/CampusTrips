@@ -173,11 +173,66 @@ try {
         FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
     )");
 
+    // Trip privacy: an independent master switch. When a trip is private,
+    // any shareable link for it is blocked regardless of the link's own
+    // active/disabled state.
+    $tripPrivacyColumn = $pdo->query("SHOW COLUMNS FROM trips LIKE 'is_private'")->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($tripPrivacyColumn)) {
+        $pdo->exec("ALTER TABLE trips ADD COLUMN is_private TINYINT(1) NOT NULL DEFAULT 0 AFTER travel_style");
+    }
+
+    // Shareable trip links. Deliberately NOT a foreign key with ON DELETE
+    // CASCADE to trips: rows here survive a trip's deletion, which lets a
+    // stale token resolve to "trip no longer exists" rather than silently
+    // vanishing. Every row is kept forever (never reused) — "Generate New
+    // Link" revokes the current row and inserts a new one, so old tokens
+    // can never become valid again.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS trip_shares (
+        id             INT AUTO_INCREMENT PRIMARY KEY,
+        trip_id        INT           NOT NULL,
+        user_id        INT           NOT NULL,
+        token          VARCHAR(64)   NOT NULL UNIQUE,
+        is_active      TINYINT(1)    NOT NULL DEFAULT 1,
+        access_level   ENUM('view', 'edit') NOT NULL DEFAULT 'view',
+        view_count     INT           NOT NULL DEFAULT 0,
+        last_viewed_at DATETIME      NULL,
+        revoked_at     DATETIME      NULL,
+        created_at     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        INDEX (trip_id),
+        INDEX (token)
+    )");
+
+    // Older installations may already have trip_shares without this column
+    $tripShareAccessColumn = $pdo->query("SHOW COLUMNS FROM trip_shares LIKE 'access_level'")->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($tripShareAccessColumn)) {
+        $pdo->exec("ALTER TABLE trip_shares ADD COLUMN access_level ENUM('view', 'edit') NOT NULL DEFAULT 'view' AFTER is_active");
+    }
+
+    // Records that a signed-in user has taken up a trip's share link, so
+    // the trip keeps appearing in THEIR OWN dashboard (labelled as shared)
+    // rather than needing the link every time. Visibility is still
+    // re-checked live against trip_shares/trips on every read — see
+    // getSharedTripsForUser() — so this table alone never grants access
+    // once a link is disabled, regenerated, or the trip goes private.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS trip_share_recipients (
+        id                INT AUTO_INCREMENT PRIMARY KEY,
+        share_id          INT       NOT NULL,
+        trip_id           INT       NOT NULL,
+        user_id           INT       NOT NULL,
+        first_accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_accessed_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY trip_user_unique (trip_id, user_id),
+        FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        INDEX (share_id)
+    )");
+
     // Existing installations may have been created with MyISAM, which ignores
     // transactions and foreign keys. Convert the related tables before saves
     // rely on both guarantees.
     $tableStatusStmt = $pdo->prepare("SHOW TABLE STATUS LIKE ?");
-    foreach (['trips', 'saved_flights', 'saved_accommodations', 'saved_activities'] as $table) {
+    foreach (['trips', 'saved_flights', 'saved_accommodations', 'saved_activities', 'trip_shares', 'trip_share_recipients'] as $table) {
         $tableStatusStmt->execute([$table]);
         $tableStatus = $tableStatusStmt->fetch(PDO::FETCH_ASSOC);
         if (($tableStatus['Engine'] ?? '') !== 'InnoDB') {
