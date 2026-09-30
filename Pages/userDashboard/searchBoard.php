@@ -427,13 +427,18 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
         <ul class="menu-list">
             <!-- Back to Dashboard moved to top-left for quick access -->
             <li>
-                <button type="button" onclick="location.href='userProfile.php'">
-                    User Profile
+                <button type="button" onclick="location.href='Dashboard.php'">
+                    Dashboard
                 </button>
             </li>
             <li>
                 <button type="button" onclick="location.href='settings.php'">
                     Settings
+                </button>
+            </li>
+            <li>
+                <button type="button" onclick="location.href='budget.php'">
+                    Budget
                 </button>
             </li>
                     <li>

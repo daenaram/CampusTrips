@@ -372,6 +372,12 @@ $categoryOptions = ['Flights', 'Accommodation', 'Activities', 'Food', 'Transport
     </div>
     <ul class="menu-list">
         <!-- Back to Dashboard moved to top-left for quick access -->
+        <li>
+            <button
+                type="button"
+                onclick="location.href='Dashboard.php'">
+                Dashboard
+            </button>
         <!-- User Profile -->
         <li>
             <button
@@ -387,6 +393,14 @@ $categoryOptions = ['Flights', 'Accommodation', 'Activities', 'Food', 'Transport
                 type="button"
                 onclick="location.href='settings.php'">
                 Settings
+            </button>
+        </li>
+
+        <li>
+            <button
+                type="button"
+                onclick="location.href='helpDesk.php'">
+                Contact us
             </button>
         </li>
 
