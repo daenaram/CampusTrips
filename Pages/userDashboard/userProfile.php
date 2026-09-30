@@ -13,6 +13,74 @@ require_once __DIR__ . '/../../assets/api/config/database.php';
 $profilePictureError = '';
 $profilePictureSuccess = '';
 
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST' &&
+    isset($_POST['remove_profile_picture'])
+) {
+
+    try {
+
+        // Find the current picture first.
+        $pictureStmt = $pdo->prepare("
+            SELECT profile_picture
+            FROM users
+            WHERE id = ?
+        ");
+
+        $pictureStmt->execute([
+            $_SESSION['user_id']
+        ]);
+
+        $currentPicture =
+            $pictureStmt->fetchColumn();
+
+
+        // Remove custom uploaded file.
+        // Do NOT delete preset avatars.
+        if (
+            $currentPicture &&
+            str_starts_with(
+                $currentPicture,
+                'uploads/profile_pictures/'
+            )
+        ) {
+
+            $filePath =
+                __DIR__ .
+                '/../../assets/' .
+                $currentPicture;
+
+            if (is_file($filePath)) {
+                unlink($filePath);
+            }
+        }
+
+
+        $removeStmt = $pdo->prepare("
+            UPDATE users
+            SET profile_picture = NULL
+            WHERE id = ?
+        ");
+
+        $removeStmt->execute([
+            $_SESSION['user_id']
+        ]);
+
+        header('Location: userProfile.php?picture=removed');
+        exit();
+
+    } catch (Throwable $e) {
+
+        error_log(
+            'Profile picture removal error: ' .
+            $e->getMessage()
+        );
+
+        $profilePictureError =
+            'Unable to remove profile picture.';
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile_picture'])) {
 
     $selectedAvatar = trim($_POST['selected_avatar'] ?? '');
@@ -139,8 +207,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile_pictur
     }
 }
 
-if (isset($_GET['picture']) && $_GET['picture'] === 'updated') {
-    $profilePictureSuccess = 'Profile picture updated successfully.';
+if (isset($_GET['picture'])) {
+
+    if ($_GET['picture'] === 'updated') {
+        $profilePictureSuccess =
+            'Profile picture updated successfully.';
+    }
+
+    elseif ($_GET['picture'] === 'removed') {
+        $profilePictureSuccess =
+            'Profile picture removed successfully.';
+    }
 }
 
 $stmt = $pdo->prepare("SELECT name, email, created_at, profile_picture FROM users WHERE id = ?");
@@ -312,21 +389,31 @@ if (!$user) {
 
                     <div class="profile-modal-actions">
 
-                        <button
-                            type="button"
-                            class="profile-modal-cancel"
-                            id="cancel-profile-picture">
-                            Cancel
-                        </button>
+                    <button
+                        type="button"
+                        class="profile-modal-cancel"
+                        id="cancel-profile-picture">
+                        Cancel
+                    </button>
 
-                        <button
-                            type="submit"
-                            name="update_profile_picture"
-                            class="profile-modal-save">
-                            Save Picture
-                        </button>
+                    <button
+                        type="submit"
+                        name="update_profile_picture"
+                        class="profile-modal-save">
+                        Save Picture
+                    </button>
 
-                    </div>
+                </div>
+
+                <?php if (!empty($user['profile_picture'])): ?>
+                    <button
+                        type="submit"
+                        name="remove_profile_picture"
+                        class="remove-profile-picture-btn"
+                        formnovalidate>
+                        Remove Current Picture
+                    </button>
+                <?php endif; ?>
 
                 </form>
 

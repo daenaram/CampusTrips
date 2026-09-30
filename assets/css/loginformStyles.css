@@ -279,18 +279,22 @@ a { display: inline-block; margin-top: 0.5rem; color: #0078d4; }
     display: block;
 }
 
+/* ================================
+   PROFILE PICTURE MODAL
+================================ */
+
 .profile-picture-modal {
     display: none;
     position: fixed;
     inset: 0;
     z-index: 1000;
 
-    background: rgba(0, 0, 0, 0.45);
+    background: rgba(0, 0, 0, 0.48);
 
     align-items: center;
     justify-content: center;
 
-    padding: 20px;
+    padding: 24px;
 }
 
 .profile-picture-modal.show {
@@ -301,49 +305,93 @@ a { display: inline-block; margin-top: 0.5rem; color: #0078d4; }
     position: relative;
 
     width: 100%;
-    max-width: 500px;
+    max-width: 555px;
+    max-height: 90vh;
+    overflow-y: auto;
 
-    background: #fff;
-    border-radius: 12px;
+    background: #ffffff;
+    border-radius: 18px;
 
-    padding: 28px;
+    padding: 34px 36px 30px;
 
     box-sizing: border-box;
 
-    max-height: 90vh;
-    overflow-y: auto;
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.18);
 }
 
+
+/* TITLE */
+
 .profile-picture-modal-card h2 {
-    margin-top: 0;
-    margin-bottom: 24px;
+    margin: 0 0 28px;
+
     text-align: center;
+
+    font-size: 28px;
+    font-weight: 700;
+
+    color: #222;
 }
 
 .profile-picture-modal-card h3 {
-    margin-bottom: 12px;
-    font-size: 15px;
+    margin: 0 0 18px;
+
+    font-size: 17px;
+    font-weight: 600;
+
+    color: #2d2d2d;
 }
+
+
+/* CLOSE X */
 
 .profile-modal-close {
     position: absolute;
-    top: 12px;
-    right: 16px;
+
+    top: 18px;
+    right: 20px;
+
+    width: 34px;
+    height: 34px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     border: none;
-    background: none;
+    border-radius: 50%;
 
-    font-size: 28px;
+    background: transparent;
+
+    color: #666;
+    font-size: 26px;
+    line-height: 1;
+
     cursor: pointer;
 }
+
+.profile-modal-close:hover {
+    background: #f1f3f5;
+    color: #222;
+}
+
+
+/* AVATARS */
 
 .avatar-options {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
+
+    gap: 26px 30px;
+
+    margin-bottom: 4px;
 }
 
 .avatar-option {
+    display: flex;
+    justify-content: center;
+
     cursor: pointer;
 }
 
@@ -352,58 +400,98 @@ a { display: inline-block; margin-top: 0.5rem; color: #0078d4; }
 }
 
 .avatar-option img {
+    width: 88px;
+    height: 88px;
+
     display: block;
 
-    width: 80px;
-    height: 80px;
-
-    margin: auto;
-
     object-fit: cover;
+
     border-radius: 50%;
 
     border: 3px solid transparent;
 
     box-sizing: border-box;
+
+    transition:
+        border-color 0.15s ease,
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.avatar-option:hover img {
+    transform: translateY(-2px);
 }
 
 .avatar-option input:checked + img {
-    border-color: #0078d4;
+    border-color: #087fd3;
+
+    box-shadow:
+        0 0 0 3px rgba(8, 127, 211, 0.14);
 }
+
+
+/* OR DIVIDER */
 
 .profile-picture-divider {
     display: flex;
     align-items: center;
-    gap: 12px;
 
-    margin: 24px 0;
+    gap: 14px;
+
+    margin: 28px 0;
 
     color: #777;
+
     font-size: 13px;
 }
 
 .profile-picture-divider::before,
 .profile-picture-divider::after {
     content: "";
+
     flex: 1;
+
     height: 1px;
-    background: #d8d8d8;
+
+    background: #dedede;
 }
+
+
+/* UPLOAD */
 
 #profile-upload {
     width: 100%;
+
+    padding: 9px;
+
+    box-sizing: border-box;
+
+    border: 1px solid #d9dde2;
+    border-radius: 8px;
+
+    background: #fafafa;
+
+    font-size: 13px;
 }
 
 .profile-upload-help {
-    margin-top: 8px;
+    margin: 8px 0 0;
 
-    color: #666;
+    color: #777;
+
     font-size: 12px;
+    line-height: 1.4;
 }
+
+
+/* UPLOAD PREVIEW */
 
 .upload-preview-container {
     display: none;
-    margin-top: 15px;
+
+    margin-top: 16px;
+
     text-align: center;
 }
 
@@ -412,55 +500,133 @@ a { display: inline-block; margin-top: 0.5rem; color: #0078d4; }
 }
 
 #upload-preview {
-    width: 100px;
-    height: 100px;
+    width: 90px;
+    height: 90px;
 
     object-fit: cover;
+
     border-radius: 50%;
 
-    border: 2px solid #ddd;
+    border: 3px solid #e4e7eb;
 }
 
-.profile-modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
 
-    margin-top: 24px;
+/* MAIN BUTTONS */
+
+.profile-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+
+    gap: 12px;
+
+    margin-top: 26px;
 }
 
 .profile-modal-cancel,
 .profile-modal-save {
-    padding: 9px 16px;
+    min-height: 44px;
 
-    border-radius: 6px;
+    padding: 10px 18px;
+
+    border-radius: 8px;
+
+    font-size: 14px;
+    font-weight: 600;
+
     cursor: pointer;
 
-    font-size: 14px;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
 }
+
+
+/* CANCEL */
 
 .profile-modal-cancel {
-    background: #fff;
-    border: 1px solid #ccc;
+    border: 1px solid #d0d5dd;
+
+    background: #ffffff;
+
+    color: #344054;
 }
+
+.profile-modal-cancel:hover {
+    background: #f7f8fa;
+}
+
+
+/* SAVE */
 
 .profile-modal-save {
+    border: 1px solid #087fd3;
+
+    background: #087fd3;
+
+    color: #ffffff;
+}
+
+.profile-modal-save:hover {
+    background: #066eb8;
+    border-color: #066eb8;
+}
+
+
+/* REMOVE */
+
+.remove-profile-picture-btn {
+    display: block;
+
+    margin: 18px auto 0;
+
+    padding: 4px 8px;
+
     border: none;
-    background: #0078d4;
-    color: #fff;
+
+    background: transparent;
+
+    color: #d92d20;
+
+    font-size: 13px;
+    font-weight: 500;
+
+    cursor: pointer;
 }
 
-.profile-picture-message {
-    margin: 10px auto 0;
-    font-size: 14px;
+.remove-profile-picture-btn:hover {
+    text-decoration: underline;
 }
 
-.profile-picture-message.success {
-    color: green;
-}
 
-.profile-picture-message.error {
-    color: #c62828;
+/* MOBILE */
+
+@media (max-width: 600px) {
+
+    .profile-picture-modal {
+        padding: 12px;
+    }
+
+    .profile-picture-modal-card {
+        padding: 30px 22px 24px;
+        border-radius: 14px;
+    }
+
+    .profile-picture-modal-card h2 {
+        font-size: 23px;
+    }
+
+    .avatar-options {
+        gap: 20px 12px;
+    }
+
+    .avatar-option img {
+        width: 72px;
+        height: 72px;
+    }
+
+    .profile-modal-actions {
+        grid-template-columns: 1fr;
+    }
 }
 
 .avatar-head {
@@ -483,24 +649,9 @@ a { display: inline-block; margin-top: 0.5rem; color: #0078d4; }
     left: -3px;
 }
 
-.profile-picture-btn {
-    background: #0078d4;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    padding: 0.5rem 0.9rem;
-    cursor: pointer;
-}
 
-.profile-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-top: 1.5rem;
-}
-
-.profile-buttons button {
-    min-width: 180px;
+.remove-profile-picture-btn:hover {
+    text-decoration: underline;
 }
 
 /* password requirements */
