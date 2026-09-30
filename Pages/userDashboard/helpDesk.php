@@ -69,6 +69,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_message'])) {
             </button>
         </li>
         <li>
+            <button type="button" onclick="location.href='budget.php'">
+                Budget
+            </button>
+        </li>
+        <li>
             <button type="button" onclick="location.href='settings.php'">
                 Settings
             </button>

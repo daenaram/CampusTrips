@@ -373,8 +373,12 @@ if (!$user) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Profile</title>
     <link rel="stylesheet" href="../../assets/css/loginformStyles.css">
+    <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css">
 
     <style>
+        * {
+            box-sizing: border-box;
+        }
         .profile-topbar {
             display: flex;
             align-items: center;
@@ -398,9 +402,61 @@ if (!$user) {
         .profile-topbar h1 {
             margin: 0;
         }
+
+        /* Hamburger menu spacing (matches the settings page) */
+        .menu-panel .menu-list button {
+            margin-top: 0rem;
+        }
     </style>
 </head>
+
 <body>
+    <!-- Hamburger menu icon (top right) -->
+    <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false" aria-controls="menuPanel">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+    </button>
+
+    <div class="menu-backdrop" id="menuBackdrop"></div>
+
+    <nav class="menu-panel" id="menuPanel" aria-hidden="true">
+        <div class="menu-panel-header">
+            <?php if (isset($_SESSION['name'])): ?>
+                <p>Hi, <?php echo htmlspecialchars($_SESSION['name']); ?></p>
+            <?php else: ?>
+                <p>Menu</p>
+            <?php endif; ?>
+        </div>
+
+        <ul class="menu-list">
+            <li>
+                <button type="button" onclick="location.href='Dashboard.php'">
+                    Dashboard
+                </button>
+            </li>
+            <li>
+                <button type="button" onclick="location.href='budget.php'">
+                    Budget
+                </button>
+            </li>
+            <li>
+                <button type="button" onclick="location.href='settings.php'">
+                    Settings
+                </button>
+            </li>
+            <li>
+                <button type="button" onclick="location.href='helpDesk.php'">
+                    Contact us
+                </button>
+            </li>
+            <li>
+                <button type="button" onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">
+                    Sign Out
+                </button>
+            </li>
+        </ul>
+    </nav>
 
     <div class="profile-page">
         <!-- Header row: Back to Dashboard on the left, title next to it -->
@@ -453,8 +509,6 @@ if (!$user) {
                 </p>
             <?php endif; ?>
         </div>
-
-        
 
         <div
             class="profile-picture-modal"
@@ -527,31 +581,31 @@ if (!$user) {
 
                     <div class="profile-modal-actions">
 
-                    <button
-                        type="button"
-                        class="profile-modal-cancel"
-                        id="cancel-profile-picture">
-                        Cancel
-                    </button>
+                        <button
+                            type="button"
+                            class="profile-modal-cancel"
+                            id="cancel-profile-picture">
+                            Cancel
+                        </button>
 
-                    <button
-                        type="submit"
-                        name="update_profile_picture"
-                        class="profile-modal-save">
-                        Save Picture
-                    </button>
+                        <button
+                            type="submit"
+                            name="update_profile_picture"
+                            class="profile-modal-save">
+                            Save Picture
+                        </button>
 
-                </div>
+                    </div>
 
-                <?php if (!empty($user['profile_picture'])): ?>
-                    <button
-                        type="submit"
-                        name="remove_profile_picture"
-                        class="remove-profile-picture-btn"
-                        formnovalidate>
-                        Remove Current Picture
-                    </button>
-                <?php endif; ?>
+                    <?php if (!empty($user['profile_picture'])): ?>
+                        <button
+                            type="submit"
+                            name="remove_profile_picture"
+                            class="remove-profile-picture-btn"
+                            formnovalidate>
+                            Remove Current Picture
+                        </button>
+                    <?php endif; ?>
 
                 </form>
 
@@ -649,13 +703,7 @@ if (!$user) {
         <?php if ($usernameError !== ''): ?>
 
             <p class="username-message error">
-
-                <?php
-                echo htmlspecialchars(
-                    $usernameError
-                );
-                ?>
-
+                <?php echo htmlspecialchars($usernameError); ?>
             </p>
 
         <?php endif; ?>
@@ -664,13 +712,7 @@ if (!$user) {
         <?php if ($usernameSuccess !== ''): ?>
 
             <p class="username-message success">
-
-                <?php
-                echo htmlspecialchars(
-                    $usernameSuccess
-                );
-                ?>
-
+                <?php echo htmlspecialchars($usernameSuccess); ?>
             </p>
 
         <?php endif; ?>
@@ -696,243 +738,278 @@ if (!$user) {
     </div>
 
     <script>
-    document.addEventListener('DOMContentLoaded', function () {
+        // ---------- Hamburger menu behaviour ----------
+        const menuToggle = document.getElementById('menuToggle');
+        const menuPanel = document.getElementById('menuPanel');
+        const menuBackdrop = document.getElementById('menuBackdrop');
 
-        const modal =
-            document.getElementById('profile-picture-modal');
+        function openMenu() {
+            menuToggle.classList.add('open');
+            menuToggle.setAttribute('aria-expanded', 'true');
+            menuToggle.setAttribute('aria-label', 'Close menu');
+            menuPanel.classList.add('open');
+            menuPanel.setAttribute('aria-hidden', 'false');
+            menuBackdrop.classList.add('visible');
+        }
 
-        const openButton =
-            document.getElementById('open-profile-picture-modal');
+        function closeMenu() {
+            menuToggle.classList.remove('open');
+            menuToggle.setAttribute('aria-expanded', 'false');
+            menuToggle.setAttribute('aria-label', 'Open menu');
+            menuPanel.classList.remove('open');
+            menuPanel.setAttribute('aria-hidden', 'true');
+            menuBackdrop.classList.remove('visible');
+        }
 
-        const closeButton =
-            document.getElementById('close-profile-picture-modal');
+        menuToggle.addEventListener('click', function () {
+            menuPanel.classList.contains('open') ? closeMenu() : openMenu();
+        });
 
-        const cancelButton =
-            document.getElementById('cancel-profile-picture');
+        menuBackdrop.addEventListener('click', closeMenu);
 
-        const uploadInput =
-            document.getElementById('profile-upload');
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeMenu();
+            }
+        });
 
-        const previewContainer =
-            document.getElementById('upload-preview-container');
+        document.addEventListener('DOMContentLoaded', function () {
 
-        const preview =
-            document.getElementById('upload-preview');
+            const modal =
+                document.getElementById('profile-picture-modal');
 
-        const avatarInputs =
-            document.querySelectorAll(
-                'input[name="selected_avatar"]'
+            const openButton =
+                document.getElementById('open-profile-picture-modal');
+
+            const closeButton =
+                document.getElementById('close-profile-picture-modal');
+
+            const cancelButton =
+                document.getElementById('cancel-profile-picture');
+
+            const uploadInput =
+                document.getElementById('profile-upload');
+
+            const previewContainer =
+                document.getElementById('upload-preview-container');
+
+            const preview =
+                document.getElementById('upload-preview');
+
+            const avatarInputs =
+                document.querySelectorAll(
+                    'input[name="selected_avatar"]'
+                );
+
+            const usernameModal =
+                document.getElementById('username-modal');
+
+            const openUsernameButton =
+                document.getElementById('open-username-modal');
+
+            const closeUsernameButton =
+                document.getElementById('close-username-modal');
+
+            const cancelUsernameButton =
+                document.getElementById('cancel-username-modal');
+
+            const newUsernameInput =
+                document.getElementById('new-username');
+
+            const usernameForm =
+                document.getElementById('username-form');
+
+            const usernameFormError =
+                document.getElementById('username-form-error');
+
+
+            function openModal() {
+                modal.classList.add('show');
+            }
+
+
+            function closeModal() {
+                modal.classList.remove('show');
+            }
+
+            function openUsernameModal() {
+
+                usernameModal.classList.add('show');
+
+                usernameFormError.textContent = '';
+                usernameFormError.classList.remove('show');
+
+                setTimeout(function () {
+                    newUsernameInput.focus();
+                }, 100);
+            }
+
+
+            function closeUsernameModal() {
+
+                usernameModal.classList.remove('show');
+
+                usernameForm.reset();
+
+                usernameFormError.textContent = '';
+                usernameFormError.classList.remove('show');
+            }
+
+
+            openButton.addEventListener('click', openModal);
+
+            closeButton.addEventListener('click', closeModal);
+
+            cancelButton.addEventListener('click', closeModal);
+
+            openUsernameButton.addEventListener(
+                'click',
+                openUsernameModal
             );
-        
-        const usernameModal =
-            document.getElementById('username-modal');
 
-        const openUsernameButton =
-            document.getElementById('open-username-modal');
+            closeUsernameButton.addEventListener(
+                'click',
+                closeUsernameModal
+            );
 
-        const closeUsernameButton =
-            document.getElementById('close-username-modal');
+            cancelUsernameButton.addEventListener(
+                'click',
+                closeUsernameModal
+            );
 
-        const cancelUsernameButton =
-            document.getElementById('cancel-username-modal');
+            usernameModal.addEventListener('click', function (event) {
 
-        const newUsernameInput =
-            document.getElementById('new-username');
+                if (event.target === usernameModal) {
+                    closeUsernameModal();
+                }
 
-        const usernameForm =
-            document.getElementById('username-form');
+            });
 
-        const usernameFormError =
-            document.getElementById('username-form-error');
+            usernameForm.addEventListener('submit', function (event) {
 
+                const username =
+                    newUsernameInput.value.trim();
 
-        function openModal() {
-            modal.classList.add('show');
-        }
 
+                usernameFormError.textContent = '';
+                usernameFormError.classList.remove('show');
 
-        function closeModal() {
-            modal.classList.remove('show');
-        }
 
-        function openUsernameModal() {
+                /* Empty */
 
-            usernameModal.classList.add('show');
+                if (!username) {
 
-            usernameFormError.textContent = '';
-            usernameFormError.classList.remove('show');
+                    event.preventDefault();
 
-            setTimeout(function () {
-                newUsernameInput.focus();
-            }, 100);
-        }
+                    usernameFormError.textContent =
+                        'Please enter a new username.';
 
+                    usernameFormError.classList.add('show');
 
-        function closeUsernameModal() {
+                    return;
+                }
 
-            usernameModal.classList.remove('show');
 
-            usernameForm.reset();
+                /* Length */
 
-            usernameFormError.textContent = '';
-            usernameFormError.classList.remove('show');
-        }
+                if (
+                    username.length < 3 ||
+                    username.length > 30
+                ) {
 
+                    event.preventDefault();
 
-        openButton.addEventListener('click', openModal);
+                    usernameFormError.textContent =
+                        'Username must be between 3 and 30 characters.';
 
-        closeButton.addEventListener('click', closeModal);
+                    usernameFormError.classList.add('show');
 
-        cancelButton.addEventListener('click', closeModal);
+                    return;
+                }
 
-        openUsernameButton.addEventListener(
-            'click',
-            openUsernameModal
-        );
 
-        closeUsernameButton.addEventListener(
-            'click',
-            closeUsernameModal
-        );
+                /*
+                 * Only:
+                 * letters
+                 * numbers
+                 * spaces
+                 * underscore
+                 * hyphen
+                 */
 
-        cancelUsernameButton.addEventListener(
-            'click',
-            closeUsernameModal
-        );
+                const usernamePattern =
+                    /^[A-Za-z0-9 _-]+$/;
 
-        usernameModal.addEventListener('click', function (event) {
 
-            if (event.target === usernameModal) {
-                closeUsernameModal();
-            }
+                if (!usernamePattern.test(username)) {
 
-        });
+                    event.preventDefault();
 
-        usernameForm.addEventListener('submit', function (event) {
+                    usernameFormError.textContent =
+                        'Username can only contain letters, numbers, spaces, underscores and hyphens.';
 
-            const username =
-                newUsernameInput.value.trim();
+                    usernameFormError.classList.add('show');
 
+                    return;
+                }
 
-            usernameFormError.textContent = '';
-            usernameFormError.classList.remove('show');
+            });
 
 
-            /* Empty */
+            // Clicking the dark background closes the modal.
+            modal.addEventListener('click', function (event) {
 
-            if (!username) {
+                if (event.target === modal) {
+                    closeModal();
+                }
 
-                event.preventDefault();
+            });
 
-                usernameFormError.textContent =
-                    'Please enter a new username.';
 
-                usernameFormError.classList.add('show');
+            // Show a preview of an uploaded image.
+            uploadInput.addEventListener('change', function () {
 
-                return;
-            }
+                const file = this.files[0];
 
+                if (!file) {
+                    previewContainer.classList.remove('show');
+                    preview.removeAttribute('src');
+                    return;
+                }
 
-            /* Length */
+                const reader = new FileReader();
 
-            if (
-                username.length < 3 ||
-                username.length > 30
-            ) {
+                reader.onload = function (event) {
+                    preview.src = event.target.result;
+                    previewContainer.classList.add('show');
+                };
 
-                event.preventDefault();
+                reader.readAsDataURL(file);
 
-                usernameFormError.textContent =
-                    'Username must be between 3 and 30 characters.';
 
-                usernameFormError.classList.add('show');
+                // Uploaded image takes priority, so clear preset selection.
+                avatarInputs.forEach(function (input) {
+                    input.checked = false;
+                });
 
-                return;
-            }
+            });
 
 
-            /*
-            * Only:
-            * letters
-            * numbers
-            * spaces
-            * underscore
-            * hyphen
-            */
-
-            const usernamePattern =
-                /^[A-Za-z0-9 _-]+$/;
-
-
-            if (!usernamePattern.test(username)) {
-
-                event.preventDefault();
-
-                usernameFormError.textContent =
-                    'Username can only contain letters, numbers, spaces, underscores and hyphens.';
-
-                usernameFormError.classList.add('show');
-
-                return;
-            }
-
-        });
-
-
-        // Clicking the dark background closes the modal.
-        modal.addEventListener('click', function (event) {
-
-            if (event.target === modal) {
-                closeModal();
-            }
-
-        });
-
-
-        // Show a preview of an uploaded image.
-        uploadInput.addEventListener('change', function () {
-
-            const file = this.files[0];
-
-            if (!file) {
-                previewContainer.classList.remove('show');
-                preview.removeAttribute('src');
-                return;
-            }
-
-            const reader = new FileReader();
-
-            reader.onload = function (event) {
-                preview.src = event.target.result;
-                previewContainer.classList.add('show');
-            };
-
-            reader.readAsDataURL(file);
-
-
-            // Uploaded image takes priority, so clear preset selection.
+            // Selecting an avatar clears the uploaded file.
             avatarInputs.forEach(function (input) {
-                input.checked = false;
-            });
 
-        });
+                input.addEventListener('change', function () {
 
+                    uploadInput.value = '';
 
-        // Selecting an avatar clears the uploaded file.
-        avatarInputs.forEach(function (input) {
+                    preview.removeAttribute('src');
+                    previewContainer.classList.remove('show');
 
-            input.addEventListener('change', function () {
-
-                uploadInput.value = '';
-
-                preview.removeAttribute('src');
-                previewContainer.classList.remove('show');
+                });
 
             });
 
         });
-
-    });
     </script>
 
 </body>
