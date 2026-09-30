@@ -304,19 +304,20 @@ if (!$user) {
                 id="open-profile-picture-modal">
                 Update Profile Picture
             </button>
+            <?php if ($profilePictureError !== ''): ?>
+                <p class="profile-picture-message error">
+                    <?php echo htmlspecialchars($profilePictureError); ?>
+                </p>
+            <?php endif; ?>
+
+            <?php if ($profilePictureSuccess !== ''): ?>
+                <p class="profile-picture-message success">
+                    <?php echo htmlspecialchars($profilePictureSuccess); ?>
+                </p>
+            <?php endif; ?>
         </div>
 
-        <?php if ($profilePictureError !== ''): ?>
-            <p class="profile-picture-message error">
-                <?php echo htmlspecialchars($profilePictureError); ?>
-            </p>
-        <?php endif; ?>
-
-        <?php if ($profilePictureSuccess !== ''): ?>
-            <p class="profile-picture-message success">
-                <?php echo htmlspecialchars($profilePictureSuccess); ?>
-            </p>
-        <?php endif; ?>
+        
 
         <div
             class="profile-picture-modal"

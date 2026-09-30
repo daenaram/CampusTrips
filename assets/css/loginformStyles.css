@@ -654,6 +654,34 @@ a { display: inline-block; margin-top: 0.5rem; color: #0078d4; }
     text-decoration: underline;
 }
 
+.profile-picture-message {
+    width: fit-content;
+    max-width: 420px;
+
+    margin: 12px auto 0;
+    padding: 9px 14px;
+
+    border-radius: 7px;
+
+    text-align: center;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Success message */
+.profile-picture-message.success {
+    color: #157347;
+    background: #d1e7dd;
+    border: 1px solid #badbcc;
+}
+
+/* Error message */
+.profile-picture-message.error {
+    color: #b42318;
+    background: #f8d7da;
+    border: 1px solid #f1aeb5;
+}
+
 /* password requirements */
 .password-requirements {
     margin-top: 8px;
