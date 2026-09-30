@@ -870,7 +870,7 @@ foreach ($trips as $trip) {
                     </div>
                     <div class="trip-card-detail">
                         <strong>Dates</strong>
-                        <span><?php echo htmlspecialchars($trip['start_date']); ?> → <?php echo htmlspecialchars($trip['end_date']); ?></span>
+                        <span><?php echo date('d M Y', strtotime($trip['start_date'])); ?> → <?php echo date('d M Y', strtotime($trip['end_date'])); ?></span>
                     </div>
                     <?php 
                         $startDate = new DateTime($trip['start_date']);
@@ -925,7 +925,8 @@ foreach ($trips as $trip) {
                             </p>
                         <?php endif; ?>
                         <p><strong>Destination:</strong> <?php echo htmlspecialchars($trip['destination']); ?></p>
-                        <p><strong>Dates:</strong> <?php echo htmlspecialchars($trip['start_date']); ?> → <?php echo htmlspecialchars($trip['end_date']); ?></p>
+                        <!-- Dates shown as dd Month yyyy (e.g. 05 October 2026) -->
+                        <p><strong>Dates:</strong> <?php echo date('d F Y', strtotime($trip['start_date'])); ?> → <?php echo date('d F Y', strtotime($trip['end_date'])); ?></p>
                         <p><strong>Trip Duration:</strong> <?php echo $duration; ?></p>
                     </div>
 
