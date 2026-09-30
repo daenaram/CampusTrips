@@ -682,6 +682,322 @@ a { display: inline-block; margin-top: 0.5rem; color: #0078d4; }
     border: 1px solid #f1aeb5;
 }
 
+/* ========================================
+   CHANGE USERNAME MODAL
+======================================== */
+
+.username-modal {
+    display: none;
+
+    position: fixed;
+    inset: 0;
+
+    z-index: 1000;
+
+    background: rgba(0, 0, 0, 0.48);
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+}
+
+
+/* Show modal */
+
+.username-modal.show {
+    display: flex;
+}
+
+
+/* Modal card */
+
+.username-modal-card {
+    position: relative;
+
+    width: 100%;
+    max-width: 460px;
+
+    padding: 32px;
+
+    background: #ffffff;
+
+    border-radius: 16px;
+
+    box-sizing: border-box;
+
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.18);
+}
+
+
+/* Heading */
+
+.username-modal-card h2 {
+    margin: 0 0 26px;
+
+    text-align: center;
+
+    font-size: 26px;
+    font-weight: 700;
+
+    color: #222;
+}
+
+
+/* X button */
+
+.username-modal-close {
+    position: absolute;
+
+    top: 15px;
+    right: 18px;
+
+    width: 34px;
+    height: 34px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 50%;
+
+    background: transparent;
+
+    color: #666;
+
+    font-size: 26px;
+
+    cursor: pointer;
+}
+
+.username-modal-close:hover {
+    background: #f1f3f5;
+
+    color: #222;
+}
+
+
+/* Fields */
+
+.username-field {
+    margin-bottom: 20px;
+}
+
+.username-field label {
+    display: block;
+
+    margin-bottom: 8px;
+
+    color: #333;
+
+    font-size: 14px;
+    font-weight: 600;
+}
+
+
+/* Current username display */
+
+.current-username {
+    width: 100%;
+
+    padding: 11px 12px;
+
+    box-sizing: border-box;
+
+    border: 1px solid #e0e3e7;
+    border-radius: 8px;
+
+    background: #f5f6f7;
+
+    color: #555;
+
+    font-size: 14px;
+}
+
+
+/* New username input */
+
+#new-username {
+    width: 100%;
+
+    padding: 11px 12px;
+
+    box-sizing: border-box;
+
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+
+    background: #fff;
+
+    color: #222;
+
+    font-size: 14px;
+
+    outline: none;
+}
+
+#new-username:focus {
+    border-color: #087fd3;
+
+    box-shadow:
+        0 0 0 3px rgba(8, 127, 211, 0.10);
+}
+
+
+/* Requirements */
+
+.username-requirements {
+    margin: 4px 0 20px;
+
+    padding: 12px 14px;
+
+    border-radius: 8px;
+
+    background: #f7f8fa;
+
+    color: #666;
+
+    font-size: 12px;
+}
+
+.username-requirements p {
+    margin: 0 0 6px;
+
+    font-weight: 600;
+}
+
+.username-requirements ul {
+    margin: 0;
+
+    padding-left: 18px;
+}
+
+.username-requirements li {
+    margin: 3px 0;
+}
+
+
+/* Error inside modal */
+
+.username-form-error {
+    display: none;
+
+    margin-bottom: 16px;
+    padding: 9px 12px;
+
+    border: 1px solid #f1aeb5;
+    border-radius: 7px;
+
+    background: #f8d7da;
+
+    color: #b42318;
+
+    text-align: center;
+
+    font-size: 13px;
+}
+
+.username-form-error.show {
+    display: block;
+}
+
+
+/* Bottom buttons */
+
+.username-modal-actions {
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 12px;
+
+    margin-top: 22px;
+}
+
+
+.username-cancel-btn,
+.username-save-btn {
+    min-height: 44px;
+
+    padding: 10px 16px;
+
+    border-radius: 8px;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+
+/* Cancel */
+
+.username-cancel-btn {
+    border: 1px solid #d0d5dd;
+
+    background: #ffffff;
+
+    color: #344054;
+}
+
+.username-cancel-btn:hover {
+    background: #f7f8fa;
+}
+
+
+/* Save */
+
+.username-save-btn {
+    border: 1px solid #087fd3;
+
+    background: #087fd3;
+
+    color: #ffffff;
+}
+
+.username-save-btn:hover {
+    background: #066eb8;
+
+    border-color: #066eb8;
+}
+
+.username-message {
+    width: fit-content;
+
+    max-width: 420px;
+
+    margin: 12px auto 18px;
+
+    padding: 9px 14px;
+
+    border-radius: 7px;
+
+    text-align: center;
+
+    font-size: 14px;
+    font-weight: 500;
+}
+
+
+.username-message.success {
+    color: #157347;
+
+    background: #d1e7dd;
+
+    border: 1px solid #badbcc;
+}
+
+
+.username-message.error {
+    color: #b42318;
+
+    background: #f8d7da;
+
+    border: 1px solid #f1aeb5;
+}
+
 /* password requirements */
 .password-requirements {
     margin-top: 8px;

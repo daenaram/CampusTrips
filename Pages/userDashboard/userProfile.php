@@ -12,6 +12,8 @@ require_once __DIR__ . '/../../assets/api/config/database.php';
 
 $profilePictureError = '';
 $profilePictureSuccess = '';
+$usernameError = '';
+$usernameSuccess = '';
 
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST' &&
@@ -220,6 +222,141 @@ if (isset($_GET['picture'])) {
     }
 }
 
+if (
+    isset($_GET['username']) &&
+    $_GET['username'] === 'updated'
+) {
+
+    $usernameSuccess =
+        'Username updated successfully.';
+}
+
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST' &&
+    isset($_POST['change_username'])
+) {
+
+    $newUsername =
+        trim($_POST['new_username'] ?? '');
+
+
+    /*
+     * VALIDATION 1:
+     * Empty username
+     */
+
+    if ($newUsername === '') {
+
+        $usernameError =
+            'Please enter a new username.';
+    }
+
+
+    /*
+     * VALIDATION 2:
+     * Length
+     */
+
+    elseif (
+        strlen($newUsername) < 3 ||
+        strlen($newUsername) > 30
+    ) {
+
+        $usernameError =
+            'Username must be between 3 and 30 characters.';
+    }
+
+
+    /*
+     * VALIDATION 3:
+     * Allowed characters
+     */
+
+    elseif (
+        !preg_match(
+            '/^[A-Za-z0-9 _-]+$/',
+            $newUsername
+        )
+    ) {
+
+        $usernameError =
+            'Username can only contain letters, numbers, spaces, underscores and hyphens.';
+    }
+
+    else {
+
+        try {
+
+            /*
+             * Check whether another account
+             * already uses this username.
+             */
+
+            $checkStmt = $pdo->prepare("
+                SELECT id
+                FROM users
+                WHERE LOWER(name) = LOWER(?)
+                AND id != ?
+                LIMIT 1
+            ");
+
+            $checkStmt->execute([
+                $newUsername,
+                $_SESSION['user_id']
+            ]);
+
+
+            if ($checkStmt->fetch()) {
+
+                $usernameError =
+                    'That username is already in use.';
+            }
+
+            else {
+
+                /*
+                 * Update username.
+                 */
+
+                $updateUsernameStmt = $pdo->prepare("
+                    UPDATE users
+                    SET name = ?
+                    WHERE id = ?
+                ");
+
+                $updateUsernameStmt->execute([
+                    $newUsername,
+                    $_SESSION['user_id']
+                ]);
+
+
+                /*
+                 * Redirect prevents another update
+                 * if the page is refreshed.
+                 */
+
+                header(
+                    'Location: userProfile.php?username=updated'
+                );
+
+                exit();
+            }
+
+        }
+
+        catch (PDOException $e) {
+
+            error_log(
+                'Username update error: ' .
+                $e->getMessage()
+            );
+
+            $usernameError =
+                'Unable to update username. Please try again.';
+        }
+    }
+}
+
 $stmt = $pdo->prepare("SELECT name, email, created_at, profile_picture FROM users WHERE id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -422,6 +559,122 @@ if (!$user) {
 
         </div>
 
+        <div
+            class="username-modal"
+            id="username-modal">
+
+            <div class="username-modal-card">
+
+                <button
+                    type="button"
+                    class="username-modal-close"
+                    id="close-username-modal">
+                    &times;
+                </button>
+
+                <h2>Change Username</h2>
+
+                <form
+                    method="POST"
+                    id="username-form">
+
+                    <div class="username-field">
+
+                        <label>
+                            Current Username
+                        </label>
+
+                        <div class="current-username">
+                            <?php echo htmlspecialchars($user['name']); ?>
+                        </div>
+
+                    </div>
+
+                    <div class="username-field">
+
+                        <label for="new-username">
+                            New Username
+                        </label>
+
+                        <input
+                            type="text"
+                            id="new-username"
+                            name="new_username"
+                            maxlength="30"
+                            placeholder="Enter new username"
+                            autocomplete="off"
+                            required>
+
+                    </div>
+
+                    <div class="username-requirements">
+                        <p>Username requirements:</p>
+
+                        <ul>
+                            <li>3–30 characters</li>
+                            <li>Letters and numbers are allowed</li>
+                            <li>Spaces, underscores (_) and hyphens (-) are allowed</li>
+                        </ul>
+                    </div>
+
+                    <div
+                        class="username-form-error"
+                        id="username-form-error">
+                    </div>
+
+                    <div class="username-modal-actions">
+
+                        <button
+                            type="button"
+                            class="username-cancel-btn"
+                            id="cancel-username-modal">
+                            Cancel
+                        </button>
+
+                        <button
+                            type="submit"
+                            name="change_username"
+                            class="username-save-btn">
+                            Save Username
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+        <?php if ($usernameError !== ''): ?>
+
+            <p class="username-message error">
+
+                <?php
+                echo htmlspecialchars(
+                    $usernameError
+                );
+                ?>
+
+            </p>
+
+        <?php endif; ?>
+
+
+        <?php if ($usernameSuccess !== ''): ?>
+
+            <p class="username-message success">
+
+                <?php
+                echo htmlspecialchars(
+                    $usernameSuccess
+                );
+                ?>
+
+            </p>
+
+        <?php endif; ?>
+
         <!-- Profile Info -->
         <div class="profile-info">
             <h2>Profile Information</h2>
@@ -434,6 +687,7 @@ if (!$user) {
                 <input type="text" value="<?php echo htmlspecialchars($user['email']); ?>" readonly>
             </div>
             <div class="profile-buttons">
+                <button type="button" id="open-username-modal">Change Username</button>
                 <button type="button" onclick="location.href='../UserAuthentication/change_password.php'">Change Password</button>
                 <button type="button" onclick="location.href='deleteAccount.php'">Delete Account</button>
                 <button type="button" onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">Sign Out</button>
@@ -469,6 +723,27 @@ if (!$user) {
             document.querySelectorAll(
                 'input[name="selected_avatar"]'
             );
+        
+        const usernameModal =
+            document.getElementById('username-modal');
+
+        const openUsernameButton =
+            document.getElementById('open-username-modal');
+
+        const closeUsernameButton =
+            document.getElementById('close-username-modal');
+
+        const cancelUsernameButton =
+            document.getElementById('cancel-username-modal');
+
+        const newUsernameInput =
+            document.getElementById('new-username');
+
+        const usernameForm =
+            document.getElementById('username-form');
+
+        const usernameFormError =
+            document.getElementById('username-form-error');
 
 
         function openModal() {
@@ -480,12 +755,128 @@ if (!$user) {
             modal.classList.remove('show');
         }
 
+        function openUsernameModal() {
+
+            usernameModal.classList.add('show');
+
+            usernameFormError.textContent = '';
+            usernameFormError.classList.remove('show');
+
+            setTimeout(function () {
+                newUsernameInput.focus();
+            }, 100);
+        }
+
+
+        function closeUsernameModal() {
+
+            usernameModal.classList.remove('show');
+
+            usernameForm.reset();
+
+            usernameFormError.textContent = '';
+            usernameFormError.classList.remove('show');
+        }
+
 
         openButton.addEventListener('click', openModal);
 
         closeButton.addEventListener('click', closeModal);
 
         cancelButton.addEventListener('click', closeModal);
+
+        openUsernameButton.addEventListener(
+            'click',
+            openUsernameModal
+        );
+
+        closeUsernameButton.addEventListener(
+            'click',
+            closeUsernameModal
+        );
+
+        cancelUsernameButton.addEventListener(
+            'click',
+            closeUsernameModal
+        );
+
+        usernameModal.addEventListener('click', function (event) {
+
+            if (event.target === usernameModal) {
+                closeUsernameModal();
+            }
+
+        });
+
+        usernameForm.addEventListener('submit', function (event) {
+
+            const username =
+                newUsernameInput.value.trim();
+
+
+            usernameFormError.textContent = '';
+            usernameFormError.classList.remove('show');
+
+
+            /* Empty */
+
+            if (!username) {
+
+                event.preventDefault();
+
+                usernameFormError.textContent =
+                    'Please enter a new username.';
+
+                usernameFormError.classList.add('show');
+
+                return;
+            }
+
+
+            /* Length */
+
+            if (
+                username.length < 3 ||
+                username.length > 30
+            ) {
+
+                event.preventDefault();
+
+                usernameFormError.textContent =
+                    'Username must be between 3 and 30 characters.';
+
+                usernameFormError.classList.add('show');
+
+                return;
+            }
+
+
+            /*
+            * Only:
+            * letters
+            * numbers
+            * spaces
+            * underscore
+            * hyphen
+            */
+
+            const usernamePattern =
+                /^[A-Za-z0-9 _-]+$/;
+
+
+            if (!usernamePattern.test(username)) {
+
+                event.preventDefault();
+
+                usernameFormError.textContent =
+                    'Username can only contain letters, numbers, spaces, underscores and hyphens.';
+
+                usernameFormError.classList.add('show');
+
+                return;
+            }
+
+        });
 
 
         // Clicking the dark background closes the modal.
