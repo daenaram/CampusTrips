@@ -1,40 +1,67 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUT Travel Planner | CampusTrips</title>
     <link rel="stylesheet" href="assets/css/indexStyles.css">
-    <title>AUT Web-Based Travel Planner</title>
 </head>
 
 <body>
-    <!--Nav-->
+
     <nav class="navbar">
-        <div class="navbar-container">
-            <!-- Logo img -->
-            <a href="index.html" class="navbar-logo">
-                <img src="assets/images/campustripslogo.png" alt="Campus Trips Logo" class="logo-image">
+        <div class="navbar-container page-width">
+            <a href="index.html" class="logo-group">
+                <img src="assets/images/campustripslogo.png" alt="CampusTrips Logo" class="logo">
             </a>
-    
-            <!-- Navigation Links -->
             <ul class="navbar-menu">
-                <li><a href="Pages/UserAuthentication/loginForm.html">Log In</a></li>
-                <li><a href="Pages/UserAuthentication/signup.html">Sign Up</a></li>
+                <li><a href="../AUT-Web-Based-Travel-Planner/Pages/UserAuthentication/loginForm.html" style="font-weight: 100px;">Log In</a></li>
+                <li><a href="../AUT-Web-Based-Travel-Planner/Pages/UserAuthentication/signup.html" class="signup-btn">Sign Up</a></li>
             </ul>
         </div>
     </nav>
 
-    <!-- Header -->
-    <header class="hero">
-        <div class="hero-content">
-            <img src="assets/images/landscape.jpg" alt="Campus Trips Logo" class="hero-logo">
+    <main>
+        <!-- HERO CAROUSEL -->
+        <section class="hero">
+            <div id="hero-carousel">
+                <!-- Images mapped to your uploaded files -->
+                <div class="hero-slide active" style="background-image: url('assets/images/dashboard-hero.jpg')"></div>
+                <div class="hero-slide" style="background-image: url('assets/images/img.jpg')"></div>
+                <div class="hero-slide" style="background-image: url('assets/images/img1.jpg')"></div>
+            </div>
+            
+            <div class="hero-overlay page-width">
+                <div class="hero-copy">
+                    <p class="eyebrow">AUT</p>
+                    <h1 id="hero-title">Plan your Journey.<br>Own your schedule.</h1>
+                    <p class="hero-description" id="hero-desc">Plan your journey with ease and take control of your schedule.</p>
+                    
+                </div>
+            </div>
+
+            <div class="carousel-nav page-width">
+                <span id="slide-number">01 / 03</span>
+                <div class="nav-btns">
+                    <button id="prev-slide">←</button>
+                    <button id="next-slide">→</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- INTRO SECTION -->
+        <section class="intro page-width" id="how-it-works">
+            <h2>Your best trips begin<br>with a little <em>shape.</em></h2>
+            <div class="intro-grid">
+                <p>CampusTrips collects the sparks and turns them into a route. No tab chaos, just the long way home.
+                </p>
+            </div>
+        </section>
         
-        </div>
-    <!-- Main Content-->
+    </main>
 
-    <!-- Footer -->
-
+    <script src="assets/js/index.js"></script>
 </body>
 
 </html>
