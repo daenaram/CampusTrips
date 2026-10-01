@@ -395,6 +395,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_expense'])) {
     }
 }
 
+// Delete expense
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST' &&
+    isset($_POST['delete_expense'])
+) {
+
+    $tripId = filter_input(
+        INPUT_POST,
+        'trip_id',
+        FILTER_VALIDATE_INT
+    );
+
+    $expenseId = filter_input(
+        INPUT_POST,
+        'expense_id',
+        FILTER_VALIDATE_INT
+    );
+
+    $scopeOwnerId = $tripId
+        ? getEditableTripOwnerId(
+            $pdo,
+            $tripId,
+            (int)$_SESSION['user_id']
+        )
+        : null;
+
+
+    if (
+        $tripId &&
+        $expenseId &&
+        $scopeOwnerId
+    ) {
+
+        try {
+
+            $stmt = $pdo->prepare("
+                DELETE FROM budget_items
+
+                WHERE id = ?
+                AND trip_id = ?
+                AND user_id = ?
+            ");
+
+            $stmt->execute([
+                $expenseId,
+                $tripId,
+                $scopeOwnerId
+            ]);
+
+
+            header(
+                'Location: ' .
+                $_SERVER['REQUEST_URI']
+            );
+
+            exit();
+
+        }
+
+        catch (PDOException $e) {
+
+            error_log(
+                'Expense deletion error: ' .
+                $e->getMessage()
+            );
+
+            $errors[] =
+                'Unable to delete expense.';
+        }
+
+    }
+
+    else {
+
+        $errors[] =
+            'Unable to delete expense.';
+    }
+}
+
+if (!empty($errors)) {
+    error_log('Dashboard errors: ' . implode(' | ', $errors));
+}
+
 // Handle creating a trip's first shareable link, or replacing its current
 // one. "Generate New Link" uses this same handler — it and the initial
 // "Create Shareable Link" action are the same operation: revoke whatever
@@ -1178,12 +1261,45 @@ foreach ($trips as $trip) {
                                                 </strong>
 
                                                 <?php if ($expense['currency'] !== 'NZD'): ?>
+
                                                     <span class="expense-nzd-value">
-                                                        ≈ NZD <?php echo number_format(
+                                                        ≈ NZD
+                                                        <?php
+                                                        echo number_format(
                                                             (float)$expense['amount_nzd'],
                                                             2
-                                                        ); ?>
+                                                        );
+                                                        ?>
                                                     </span>
+
+                                                <?php endif; ?>
+
+                                                <?php if ($canManage): ?>
+
+                                                    <div class="expense-actions">
+
+                                                        <button
+                                                            type="button"
+                                                            class="expense-edit-btn"
+                                                            data-trip-id="<?php echo (int)$tripId; ?>"
+                                                            data-expense-id="<?php echo (int)$expense['id']; ?>"
+                                                            data-expense-type="<?php echo htmlspecialchars($expense['category']); ?>"
+                                                            data-expense-name="<?php echo htmlspecialchars($expense['item_name']); ?>"
+                                                            data-expense-amount="<?php echo htmlspecialchars($expense['amount']); ?>"
+                                                            data-expense-currency="<?php echo htmlspecialchars($expense['currency']); ?>">
+                                                            Edit
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            class="expense-delete-btn"
+                                                            data-trip-id="<?php echo (int)$tripId; ?>"
+                                                            data-expense-id="<?php echo (int)$expense['id']; ?>">
+                                                            Delete
+                                                        </button>
+
+                                                    </div>
+
                                                 <?php endif; ?>
 
                                             </div>
@@ -1722,7 +1838,7 @@ foreach ($trips as $trip) {
                             type="number"
                             id="expense_cost"
                             name="expense_amount"
-                            min="0"
+                            min="0.01"
                             step="0.01"
                             placeholder="0.00"
                             required>
@@ -1735,7 +1851,6 @@ foreach ($trips as $trip) {
                             <option value="NZD">NZD</option>
                             <option value="AUD">AUD</option>
                             <option value="USD">USD</option>
-                            <option value="PHP">PHP</option>
                             <option value="JPY">JPY</option>
                             <option value="EUR">EUR</option>
                             <option value="GBP">GBP</option>
@@ -1987,11 +2102,6 @@ foreach ($trips as $trip) {
     const cancelExpenseModal =
         document.getElementById('cancel-expense-modal');
 
-
-    let expensesByTrip = {};
-
-    let nextExpenseId = 1;
-
     function showExpenseModal(tripId) {
 
         expenseForm.reset();
@@ -2032,6 +2142,203 @@ foreach ($trips as $trip) {
 
         showExpenseModal(tripId);
     });
+
+    tripDetailsContent.addEventListener(
+        'click',
+        function(event) {
+
+            const button =
+                event.target.closest(
+                    '.expense-edit-btn'
+                );
+
+            if (!button) {
+                return;
+            }
+
+
+            const tripId =
+                button.getAttribute(
+                    'data-trip-id'
+                );
+
+            const expenseId =
+                button.getAttribute(
+                    'data-expense-id'
+                );
+
+            const type =
+                button.getAttribute(
+                    'data-expense-type'
+                );
+
+            const name =
+                button.getAttribute(
+                    'data-expense-name'
+                );
+
+            const amount =
+                button.getAttribute(
+                    'data-expense-amount'
+                );
+
+            const currency =
+                button.getAttribute(
+                    'data-expense-currency'
+                );
+
+
+            /*
+            * Fill the existing Expense popup
+            * with the saved database values.
+            */
+
+            expenseTripId.value =
+                tripId;
+
+            expenseEditId.value =
+                expenseId;
+
+            expenseType.value =
+                type;
+
+            expenseName.value =
+                name;
+
+            expenseCost.value =
+                amount;
+
+            expenseCurrency.value =
+                currency;
+
+
+            expenseFormError.textContent =
+                '';
+
+            expenseModalTitle.textContent =
+                'Edit Expense';
+
+
+            expenseModal.style.display =
+                'flex';
+
+            expenseModal.setAttribute(
+                'aria-hidden',
+                'false'
+            );
+
+        }
+    );
+
+    tripDetailsContent.addEventListener(
+        'click',
+        function(event) {
+
+            const button =
+                event.target.closest(
+                    '.expense-delete-btn'
+                );
+
+            if (!button) {
+                return;
+            }
+
+
+            const tripId =
+                button.getAttribute(
+                    'data-trip-id'
+                );
+
+            const expenseId =
+                button.getAttribute(
+                    'data-expense-id'
+                );
+
+
+            const confirmed =
+                window.confirm(
+                    'Are you sure you want to delete this expense?'
+                );
+
+
+            if (!confirmed) {
+                return;
+            }
+
+
+            /*
+            * Build a temporary POST form.
+            */
+
+            const form =
+                document.createElement('form');
+
+            form.method = 'POST';
+
+            form.style.display = 'none';
+
+
+            const tripInput =
+                document.createElement('input');
+
+            tripInput.type =
+                'hidden';
+
+            tripInput.name =
+                'trip_id';
+
+            tripInput.value =
+                tripId;
+
+
+            const expenseInput =
+                document.createElement('input');
+
+            expenseInput.type =
+                'hidden';
+
+            expenseInput.name =
+                'expense_id';
+
+            expenseInput.value =
+                expenseId;
+
+
+            const deleteInput =
+                document.createElement('input');
+
+            deleteInput.type =
+                'hidden';
+
+            deleteInput.name =
+                'delete_expense';
+
+            deleteInput.value =
+                '1';
+
+
+            form.appendChild(
+                tripInput
+            );
+
+            form.appendChild(
+                expenseInput
+            );
+
+            form.appendChild(
+                deleteInput
+            );
+
+
+            document.body.appendChild(
+                form
+            );
+
+
+            form.submit();
+
+        }
+    );
 
     closeExpenseModal.addEventListener(
         'click',
@@ -2116,105 +2423,6 @@ foreach ($trips as $trip) {
         }
 
     });
-
-    function renderExpenses(tripId) {
-
-        const expenseList =
-            tripDetailsContent.querySelector(
-                `.expense-list[data-trip-id="${tripId}"]`
-            );
-
-        if (!expenseList) {
-            return;
-        }
-
-
-        const expenses =
-            expensesByTrip[tripId] || [];
-
-
-        if (expenses.length === 0) {
-
-            expenseList.innerHTML = `
-                <p class="expense-empty">
-                    No expenses added yet.
-                </p>
-            `;
-
-        } else {
-
-            expenseList.innerHTML =
-                expenses.map(function(expense) {
-
-                    return `
-                        <div
-                            class="expense-item"
-                            data-expense-id="${expense.id}">
-
-                            <div class="expense-item-main">
-
-                                <span class="expense-type">
-                                    ${escapeHTML(expense.type)}
-                                </span>
-
-                                <strong class="expense-name">
-                                    ${escapeHTML(expense.name)}
-                                </strong>
-
-                            </div>
-
-                            <div class="expense-item-right">
-
-                                <strong class="expense-cost">
-                                    NZD ${expense.cost.toFixed(2)}
-                                </strong>
-
-                                <div class="expense-actions">
-
-                                    <button
-                                        type="button"
-                                        class="expense-edit-btn"
-                                        data-trip-id="${tripId}"
-                                        data-expense-id="${expense.id}">
-                                        Edit
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        class="expense-delete-btn"
-                                        data-trip-id="${tripId}"
-                                        data-expense-id="${expense.id}">
-                                        Delete
-                                    </button>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-                    `;
-
-                }).join('');
-
-        }
-
-
-        const total =
-            expenses.reduce(function(sum, expense) {
-                return sum + expense.cost;
-            }, 0);
-
-
-        const totalDisplay =
-            tripDetailsContent.querySelector(
-                '.expense-total-value'
-            );
-
-        if (totalDisplay) {
-            totalDisplay.textContent =
-                total.toFixed(2);
-        }
-    }
 
     function escapeHTML(value) {
 
