@@ -7,6 +7,31 @@ session_start();
 $BASE_URL      = '/AUT-Web-Based-Travel-Planner/Pages/UserAuthentication';
 $DASHBOARD_URL = '/AUT-Web-Based-Travel-Planner/Pages/userDashboard/Dashboard.php';
 
+/**
+ * Only ever allows redirecting back to a shared trip link ("sign in to view
+ * or edit this trip") — never an arbitrary posted URL, to rule out this
+ * becoming an open redirect. Anything else falls back to the dashboard.
+ */
+function safePostLoginRedirect(?string $requested, string $dashboardUrl): string
+{
+    if ($requested === null) {
+        return $dashboardUrl;
+    }
+
+    $allowedPatterns = [
+        '#^/AUT-Web-Based-Travel-Planner/Pages/shared/sharedTrip\.php\?token=[a-f0-9]{40}$#',
+        '#^/AUT-Web-Based-Travel-Planner/Pages/userDashboard/Dashboard\.php\?shared_token=[a-f0-9]{40}$#',
+    ];
+
+    foreach ($allowedPatterns as $pattern) {
+        if (preg_match($pattern, $requested)) {
+            return $requested;
+        }
+    }
+
+    return $dashboardUrl;
+}
+
 // Only process POST requests from the login form
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: {$BASE_URL}/loginForm.html");
@@ -77,8 +102,10 @@ try {
     $_SESSION['name'] = $user['name'];
     $_SESSION['email']    = $email;
 
-    // Redirect to dashboard on successful login
-    header("Location: {$DASHBOARD_URL}");
+    // Redirect to the dashboard, unless the visitor arrived from a shared
+    // trip link's "Sign in to edit" prompt, in which case send them back to it.
+    $postLoginRedirect = safePostLoginRedirect($_POST['redirect'] ?? null, $DASHBOARD_URL);
+    header("Location: {$postLoginRedirect}");
     exit();
 
 } catch (Exception $e) {

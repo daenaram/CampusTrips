@@ -8,17 +8,13 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once __DIR__ . '/../../assets/api/config/database.php';
 require_once __DIR__ . '/../../assets/api/helpers/currencyHelper.php';
+require_once __DIR__ . '/../../assets/api/helpers/shareHelper.php';
 
 $userId = (int) $_SESSION['user_id'];
 
-//   HELPER FUNCTIONS 
-
-function tripBelongsToUser(PDO $pdo, int $tripId, int $userId): bool
-{
-    $stmt = $pdo->prepare("SELECT id FROM trips WHERE id = ? AND user_id = ?");
-    $stmt->execute([$tripId, $userId]);
-    return (bool) $stmt->fetch();
-}
+//   HELPER FUNCTIONS
+// Trip ownership/access is resolved via getEditableTripOwnerId() (shareHelper.php),
+// which additionally covers a signed-in collaborator with edit access to a shared trip.
 
 function postedPositiveInt(string $key): ?int
 {
@@ -137,8 +133,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
             case 'set_budget_cap': {
                 $tripId = postedPositiveInt('trip_id');
                 $rawCap = trim($_POST['budget_cap'] ?? '');
+                $scopeOwnerId = $tripId ? getEditableTripOwnerId($pdo, $tripId, $userId) : null;
 
-                if (!$tripId || !tripBelongsToUser($pdo, $tripId, $userId)) {
+                if (!$tripId || !$scopeOwnerId) {
                     $response['message'] = 'Trip not found.';
                     break;
                 }
@@ -149,10 +146,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
 
                 $budgetCap = $rawCap === '' ? null : round((float) $rawCap, 2);
                 $stmt = $pdo->prepare("UPDATE trips SET budget_cap = ? WHERE id = ? AND user_id = ?");
-                $stmt->execute([$budgetCap, $tripId, $userId]);
+                $stmt->execute([$budgetCap, $tripId, $scopeOwnerId]);
 
                 $response['success'] = true;
-                $response['summary'] = getTripBudgetSummary($pdo, $tripId, $userId);
+                $response['summary'] = getTripBudgetSummary($pdo, $tripId, $scopeOwnerId);
                 break;
             }
 
@@ -162,6 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
                 $itemName = trim($_POST['item_name'] ?? '');
                 $amount   = postedNonNegativeFloat('amount');
                 $currency = strtoupper(trim($_POST['currency'] ?? 'NZD'));
+                $scopeOwnerId = $tripId ? getEditableTripOwnerId($pdo, $tripId, $userId) : null;
 
                 if (!$tripId || $category === '' || $itemName === '' || $amount === null) {
                     $response['message'] = 'Please fill in all budget item fields with valid values.';
@@ -171,21 +169,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
                     $response['message'] = 'Unsupported currency selected.';
                     break;
                 }
-                if (!tripBelongsToUser($pdo, $tripId, $userId)) {
+                if (!$scopeOwnerId) {
                     $response['message'] = 'Trip not found.';
                     break;
                 }
 
                 $amountNzd = convertToNZD($pdo, $amount, $currency);
 
+                // Stored under the trip OWNER's id, same as every other saved
+                // item — a collaborator's expense still belongs to the
+                // owner's trip, consistent with saved_flights/hotels/etc.
                 $stmt = $pdo->prepare("
                     INSERT INTO budget_items (user_id, trip_id, category, item_name, amount, currency, amount_nzd)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 ");
-                $stmt->execute([$userId, $tripId, $category, $itemName, $amount, $currency, $amountNzd]);
+                $stmt->execute([$scopeOwnerId, $tripId, $category, $itemName, $amount, $currency, $amountNzd]);
 
                 $response['success'] = true;
-                $response['summary'] = getTripBudgetSummary($pdo, $tripId, $userId);
+                $response['summary'] = getTripBudgetSummary($pdo, $tripId, $scopeOwnerId);
                 break;
             }
 
@@ -196,6 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
                 $itemName = trim($_POST['item_name'] ?? '');
                 $amount   = postedNonNegativeFloat('amount');
                 $currency = strtoupper(trim($_POST['currency'] ?? 'NZD'));
+                $scopeOwnerId = $tripId ? getEditableTripOwnerId($pdo, $tripId, $userId) : null;
 
                 if (!$itemId || !$tripId || $category === '' || $itemName === '' || $amount === null) {
                     $response['message'] = 'Please fill in all budget item fields with valid values.';
@@ -205,7 +207,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
                     $response['message'] = 'Unsupported currency selected.';
                     break;
                 }
-                if (!tripBelongsToUser($pdo, $tripId, $userId)) {
+                if (!$scopeOwnerId) {
                     $response['message'] = 'Trip not found.';
                     break;
                 }
@@ -217,44 +219,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
                     SET category = ?, item_name = ?, amount = ?, currency = ?, amount_nzd = ?
                     WHERE id = ? AND user_id = ? AND trip_id = ?
                 ");
-                $stmt->execute([$category, $itemName, $amount, $currency, $amountNzd, $itemId, $userId, $tripId]);
+                $stmt->execute([$category, $itemName, $amount, $currency, $amountNzd, $itemId, $scopeOwnerId, $tripId]);
 
                 $response['success'] = true;
-                $response['summary'] = getTripBudgetSummary($pdo, $tripId, $userId);
+                $response['summary'] = getTripBudgetSummary($pdo, $tripId, $scopeOwnerId);
                 break;
             }
 
             case 'delete_item': {
                 $itemId = postedPositiveInt('item_id');
                 $tripId = postedPositiveInt('trip_id');
+                $scopeOwnerId = $tripId ? getEditableTripOwnerId($pdo, $tripId, $userId) : null;
 
                 if (!$itemId || !$tripId) {
                     $response['message'] = 'Invalid item.';
                     break;
                 }
-                if (!tripBelongsToUser($pdo, $tripId, $userId)) {
+                if (!$scopeOwnerId) {
                     $response['message'] = 'Trip not found.';
                     break;
                 }
 
                 $stmt = $pdo->prepare("DELETE FROM budget_items WHERE id = ? AND user_id = ? AND trip_id = ?");
-                $stmt->execute([$itemId, $userId, $tripId]);
+                $stmt->execute([$itemId, $scopeOwnerId, $tripId]);
 
                 $response['success'] = true;
-                $response['summary'] = getTripBudgetSummary($pdo, $tripId, $userId);
+                $response['summary'] = getTripBudgetSummary($pdo, $tripId, $scopeOwnerId);
                 break;
             }
 
             case 'get_summary': {
                 $tripId = postedPositiveInt('trip_id');
+                $scopeOwnerId = $tripId ? getEditableTripOwnerId($pdo, $tripId, $userId) : null;
 
-                if (!$tripId || !tripBelongsToUser($pdo, $tripId, $userId)) {
+                if (!$tripId || !$scopeOwnerId) {
                     $response['message'] = 'Trip not found.';
                     break;
                 }
 
                 $response['success'] = true;
-                $response['summary'] = getTripBudgetSummary($pdo, $tripId, $userId);
+                $response['summary'] = getTripBudgetSummary($pdo, $tripId, $scopeOwnerId);
                 break;
             }
 
@@ -273,10 +277,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
 //   PAGE RENDER (GET)
 
 $trips = [];
+$tripOwnerMap = [];
 try {
     $stmt = $pdo->prepare("SELECT id, title, destination, start_date, end_date FROM trips WHERE user_id = ? AND end_date >= CURDATE() ORDER BY start_date ASC");
     $stmt->execute([$userId]);
-    $trips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $ownedTrips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($ownedTrips as &$ownedTrip) {
+        $ownedTrip['owner_id'] = $userId;
+        $ownedTrip['owner_name'] = null;
+    }
+    unset($ownedTrip);
+
+    // Trips shared with this user where the link currently grants edit
+    // access — budget management is an editing capability, so a view-only
+    // shared trip doesn't get a tab here, same boundary as the dashboard.
+    $sharedEditTrips = array_values(array_filter(
+        getSharedTripsForUser($pdo, $userId),
+        fn($t) => $t['link_access_level'] === 'edit' && $t['end_date'] >= date('Y-m-d')
+    ));
+
+    $trips = array_merge($ownedTrips, $sharedEditTrips);
+
+    foreach ($trips as $trip) {
+        $tripOwnerMap[(int) $trip['id']] = (int) $trip['owner_id'];
+    }
 } catch (PDOException $e) {
     error_log('Budget page trip load error: ' . $e->getMessage());
 }
@@ -289,7 +313,8 @@ if (!$selectedTripId || !in_array($selectedTripId, $validTripIds, true)) {
 
 $tripBudgets = [];
 foreach ($trips as $trip) {
-    $tripBudgets[(int) $trip['id']] = getTripBudgetSummary($pdo, (int) $trip['id'], $userId);
+    $tripId = (int) $trip['id'];
+    $tripBudgets[$tripId] = getTripBudgetSummary($pdo, $tripId, $tripOwnerMap[$tripId]);
 }
 
 $supportedCurrencies = getSupportedCurrencies();
@@ -347,6 +372,12 @@ $categoryOptions = ['Flights', 'Accommodation', 'Activities', 'Food', 'Transport
     </div>
     <ul class="menu-list">
         <!-- Back to Dashboard moved to top-left for quick access -->
+        <li>
+            <button
+                type="button"
+                onclick="location.href='Dashboard.php'">
+                Dashboard
+            </button>
         <!-- User Profile -->
         <li>
             <button
@@ -362,6 +393,14 @@ $categoryOptions = ['Flights', 'Accommodation', 'Activities', 'Food', 'Transport
                 type="button"
                 onclick="location.href='settings.php'">
                 Settings
+            </button>
+        </li>
+
+        <li>
+            <button
+                type="button"
+                onclick="location.href='helpDesk.php'">
+                Contact us
             </button>
         </li>
 
@@ -396,6 +435,9 @@ $categoryOptions = ['Flights', 'Accommodation', 'Activities', 'Food', 'Transport
                         class="budget-trip-tab <?php echo ((int)$trip['id'] === (int)$selectedTripId) ? 'active' : ''; ?>"
                         data-trip-id="<?php echo (int) $trip['id']; ?>">
                     <?php echo htmlspecialchars($trip['title']); ?>
+                    <?php if (!empty($trip['owner_name'])): ?>
+                        <span class="budget-tab-shared-tag">shared</span>
+                    <?php endif; ?>
                 </button>
             <?php endforeach; ?>
         </div>

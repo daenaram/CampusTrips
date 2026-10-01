@@ -101,6 +101,7 @@
             <div class="budget-summary-card">
                 <div class="budget-trip-heading">
                     <h2>${escapeHtml(trip.title)}</h2>
+                    ${trip.owner_name ? `<span class="budget-shared-note">🔗 Shared by ${escapeHtml(trip.owner_name)} — changes here save to their trip.</span>` : ''}
                     <span>${escapeHtml(trip.destination)} &middot; ${escapeHtml(trip.start_date)} → ${escapeHtml(trip.end_date)}</span>
                 </div>
 

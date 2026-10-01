@@ -272,6 +272,363 @@ a { display: inline-block; margin-top: 0.5rem; color: #0078d4; }
     overflow: hidden;
 }
 
+.profile-avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* ================================
+   PROFILE PICTURE MODAL
+================================ */
+
+.profile-picture-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    background: rgba(0, 0, 0, 0.48);
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 24px;
+}
+
+.profile-picture-modal.show {
+    display: flex;
+}
+
+.profile-picture-modal-card {
+    position: relative;
+
+    width: 100%;
+    max-width: 555px;
+    max-height: 90vh;
+    overflow-y: auto;
+
+    background: #ffffff;
+    border-radius: 18px;
+
+    padding: 34px 36px 30px;
+
+    box-sizing: border-box;
+
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.18);
+}
+
+
+/* TITLE */
+
+.profile-picture-modal-card h2 {
+    margin: 0 0 28px;
+
+    text-align: center;
+
+    font-size: 28px;
+    font-weight: 700;
+
+    color: #222;
+}
+
+.profile-picture-modal-card h3 {
+    margin: 0 0 18px;
+
+    font-size: 17px;
+    font-weight: 600;
+
+    color: #2d2d2d;
+}
+
+
+/* CLOSE X */
+
+.profile-modal-close {
+    position: absolute;
+
+    top: 18px;
+    right: 20px;
+
+    width: 34px;
+    height: 34px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 50%;
+
+    background: transparent;
+
+    color: #666;
+    font-size: 26px;
+    line-height: 1;
+
+    cursor: pointer;
+}
+
+.profile-modal-close:hover {
+    background: #f1f3f5;
+    color: #222;
+}
+
+
+/* AVATARS */
+
+.avatar-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+
+    gap: 26px 30px;
+
+    margin-bottom: 4px;
+}
+
+.avatar-option {
+    display: flex;
+    justify-content: center;
+
+    cursor: pointer;
+}
+
+.avatar-option input {
+    display: none;
+}
+
+.avatar-option img {
+    width: 88px;
+    height: 88px;
+
+    display: block;
+
+    object-fit: cover;
+
+    border-radius: 50%;
+
+    border: 3px solid transparent;
+
+    box-sizing: border-box;
+
+    transition:
+        border-color 0.15s ease,
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.avatar-option:hover img {
+    transform: translateY(-2px);
+}
+
+.avatar-option input:checked + img {
+    border-color: #087fd3;
+
+    box-shadow:
+        0 0 0 3px rgba(8, 127, 211, 0.14);
+}
+
+
+/* OR DIVIDER */
+
+.profile-picture-divider {
+    display: flex;
+    align-items: center;
+
+    gap: 14px;
+
+    margin: 28px 0;
+
+    color: #777;
+
+    font-size: 13px;
+}
+
+.profile-picture-divider::before,
+.profile-picture-divider::after {
+    content: "";
+
+    flex: 1;
+
+    height: 1px;
+
+    background: #dedede;
+}
+
+
+/* UPLOAD */
+
+#profile-upload {
+    width: 100%;
+
+    padding: 9px;
+
+    box-sizing: border-box;
+
+    border: 1px solid #d9dde2;
+    border-radius: 8px;
+
+    background: #fafafa;
+
+    font-size: 13px;
+}
+
+.profile-upload-help {
+    margin: 8px 0 0;
+
+    color: #777;
+
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+
+/* UPLOAD PREVIEW */
+
+.upload-preview-container {
+    display: none;
+
+    margin-top: 16px;
+
+    text-align: center;
+}
+
+.upload-preview-container.show {
+    display: block;
+}
+
+#upload-preview {
+    width: 90px;
+    height: 90px;
+
+    object-fit: cover;
+
+    border-radius: 50%;
+
+    border: 3px solid #e4e7eb;
+}
+
+
+/* MAIN BUTTONS */
+
+.profile-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+
+    gap: 12px;
+
+    margin-top: 26px;
+}
+
+.profile-modal-cancel,
+.profile-modal-save {
+    min-height: 44px;
+
+    padding: 10px 18px;
+
+    border-radius: 8px;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+}
+
+
+/* CANCEL */
+
+.profile-modal-cancel {
+    border: 1px solid #d0d5dd;
+
+    background: #ffffff;
+
+    color: #344054;
+}
+
+.profile-modal-cancel:hover {
+    background: #f7f8fa;
+}
+
+
+/* SAVE */
+
+.profile-modal-save {
+    border: 1px solid #087fd3;
+
+    background: #087fd3;
+
+    color: #ffffff;
+}
+
+.profile-modal-save:hover {
+    background: #066eb8;
+    border-color: #066eb8;
+}
+
+
+/* REMOVE */
+
+.remove-profile-picture-btn {
+    display: block;
+
+    margin: 18px auto 0;
+
+    padding: 4px 8px;
+
+    border: none;
+
+    background: transparent;
+
+    color: #d92d20;
+
+    font-size: 13px;
+    font-weight: 500;
+
+    cursor: pointer;
+}
+
+.remove-profile-picture-btn:hover {
+    text-decoration: underline;
+}
+
+
+/* MOBILE */
+
+@media (max-width: 600px) {
+
+    .profile-picture-modal {
+        padding: 12px;
+    }
+
+    .profile-picture-modal-card {
+        padding: 30px 22px 24px;
+        border-radius: 14px;
+    }
+
+    .profile-picture-modal-card h2 {
+        font-size: 23px;
+    }
+
+    .avatar-options {
+        gap: 20px 12px;
+    }
+
+    .avatar-option img {
+        width: 72px;
+        height: 72px;
+    }
+
+    .profile-modal-actions {
+        grid-template-columns: 1fr;
+    }
+}
+
 .avatar-head {
     width: 48px;
     height: 48px;
@@ -292,24 +649,353 @@ a { display: inline-block; margin-top: 0.5rem; color: #0078d4; }
     left: -3px;
 }
 
-.profile-picture-btn {
-    background: #0078d4;
-    color: #fff;
+
+.remove-profile-picture-btn:hover {
+    text-decoration: underline;
+}
+
+.profile-picture-message {
+    width: fit-content;
+    max-width: 420px;
+
+    margin: 12px auto 0;
+    padding: 9px 14px;
+
+    border-radius: 7px;
+
+    text-align: center;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Success message */
+.profile-picture-message.success {
+    color: #157347;
+    background: #d1e7dd;
+    border: 1px solid #badbcc;
+}
+
+/* Error message */
+.profile-picture-message.error {
+    color: #b42318;
+    background: #f8d7da;
+    border: 1px solid #f1aeb5;
+}
+
+/* ========================================
+   CHANGE USERNAME MODAL
+======================================== */
+
+.username-modal {
+    display: none;
+
+    position: fixed;
+    inset: 0;
+
+    z-index: 1000;
+
+    background: rgba(0, 0, 0, 0.48);
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+}
+
+
+/* Show modal */
+
+.username-modal.show {
+    display: flex;
+}
+
+
+/* Modal card */
+
+.username-modal-card {
+    position: relative;
+
+    width: 100%;
+    max-width: 460px;
+
+    padding: 32px;
+
+    background: #ffffff;
+
+    border-radius: 16px;
+
+    box-sizing: border-box;
+
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.18);
+}
+
+
+/* Heading */
+
+.username-modal-card h2 {
+    margin: 0 0 26px;
+
+    text-align: center;
+
+    font-size: 26px;
+    font-weight: 700;
+
+    color: #222;
+}
+
+
+/* X button */
+
+.username-modal-close {
+    position: absolute;
+
+    top: 15px;
+    right: 18px;
+
+    width: 34px;
+    height: 34px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
     border: none;
-    border-radius: 4px;
-    padding: 0.5rem 0.9rem;
+    border-radius: 50%;
+
+    background: transparent;
+
+    color: #666;
+
+    font-size: 26px;
+
     cursor: pointer;
 }
 
-.profile-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-top: 1.5rem;
+.username-modal-close:hover {
+    background: #f1f3f5;
+
+    color: #222;
 }
 
-.profile-buttons button {
-    min-width: 180px;
+
+/* Fields */
+
+.username-field {
+    margin-bottom: 20px;
+}
+
+.username-field label {
+    display: block;
+
+    margin-bottom: 8px;
+
+    color: #333;
+
+    font-size: 14px;
+    font-weight: 600;
+}
+
+
+/* Current username display */
+
+.current-username {
+    width: 100%;
+
+    padding: 11px 12px;
+
+    box-sizing: border-box;
+
+    border: 1px solid #e0e3e7;
+    border-radius: 8px;
+
+    background: #f5f6f7;
+
+    color: #555;
+
+    font-size: 14px;
+}
+
+
+/* New username input */
+
+#new-username {
+    width: 100%;
+
+    padding: 11px 12px;
+
+    box-sizing: border-box;
+
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+
+    background: #fff;
+
+    color: #222;
+
+    font-size: 14px;
+
+    outline: none;
+}
+
+#new-username:focus {
+    border-color: #087fd3;
+
+    box-shadow:
+        0 0 0 3px rgba(8, 127, 211, 0.10);
+}
+
+
+/* Requirements */
+
+.username-requirements {
+    margin: 4px 0 20px;
+
+    padding: 12px 14px;
+
+    border-radius: 8px;
+
+    background: #f7f8fa;
+
+    color: #666;
+
+    font-size: 12px;
+}
+
+.username-requirements p {
+    margin: 0 0 6px;
+
+    font-weight: 600;
+}
+
+.username-requirements ul {
+    margin: 0;
+
+    padding-left: 18px;
+}
+
+.username-requirements li {
+    margin: 3px 0;
+}
+
+
+/* Error inside modal */
+
+.username-form-error {
+    display: none;
+
+    margin-bottom: 16px;
+    padding: 9px 12px;
+
+    border: 1px solid #f1aeb5;
+    border-radius: 7px;
+
+    background: #f8d7da;
+
+    color: #b42318;
+
+    text-align: center;
+
+    font-size: 13px;
+}
+
+.username-form-error.show {
+    display: block;
+}
+
+
+/* Bottom buttons */
+
+.username-modal-actions {
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 12px;
+
+    margin-top: 22px;
+}
+
+
+.username-cancel-btn,
+.username-save-btn {
+    min-height: 44px;
+
+    padding: 10px 16px;
+
+    border-radius: 8px;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+
+/* Cancel */
+
+.username-cancel-btn {
+    border: 1px solid #d0d5dd;
+
+    background: #ffffff;
+
+    color: #344054;
+}
+
+.username-cancel-btn:hover {
+    background: #f7f8fa;
+}
+
+
+/* Save */
+
+.username-save-btn {
+    border: 1px solid #087fd3;
+
+    background: #087fd3;
+
+    color: #ffffff;
+}
+
+.username-save-btn:hover {
+    background: #066eb8;
+
+    border-color: #066eb8;
+}
+
+.username-message {
+    width: fit-content;
+
+    max-width: 420px;
+
+    margin: 12px auto 18px;
+
+    padding: 9px 14px;
+
+    border-radius: 7px;
+
+    text-align: center;
+
+    font-size: 14px;
+    font-weight: 500;
+}
+
+
+.username-message.success {
+    color: #157347;
+
+    background: #d1e7dd;
+
+    border: 1px solid #badbcc;
+}
+
+
+.username-message.error {
+    color: #b42318;
+
+    background: #f8d7da;
+
+    border: 1px solid #f1aeb5;
 }
 
 /* password requirements */
