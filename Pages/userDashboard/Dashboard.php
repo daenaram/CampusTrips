@@ -722,6 +722,39 @@ foreach ($trips as $trip) {
     <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css">
     <link rel="stylesheet" href="../../assets/css/calendar.css">
     <link rel="stylesheet" href="../../assets/css/conflictAlert.css">
+
+    <!-- Trip card action buttons: wider buttons with a small gap, red Delete Trip -->
+    <style>
+        .trip-card-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .trip-card-actions .view-details-btn,
+        .trip-card-actions .trip-delete-form {
+            flex: 1;
+            margin: 0;
+        }
+
+        .trip-card-actions .view-details-btn,
+        .trip-card-actions .delete-trip-btn {
+            width: 100%;
+        }
+
+        .trip-card-actions .delete-trip-btn {
+            background-color: #dc2626 !important;
+            border-color: #dc2626 !important;
+            color: #ffffff !important;
+        }
+
+        .trip-card-actions .delete-trip-btn:hover,
+        .trip-card-actions .delete-trip-btn:focus-visible {
+            background-color: #b91c1c !important;
+            border-color: #b91c1c !important;
+        }
+    </style>
 </head>
 <body>
 
@@ -984,9 +1017,8 @@ foreach ($trips as $trip) {
                         <span>NZD <?php echo number_format($tripDetails[$tripId]['budget']['grand_total'] ?? 0, 2); ?></span>
                     </div>
                     
-                    <!--Added style to separate the two buttons-->
-                    <div class="trip-card-actions"
-                    style="display:flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                    <!-- Buttons stretch to share the row with a small gap between them (see <style> in head) -->
+                    <div class="trip-card-actions">
                         <button type="button" class="trip-action-btn view-details-btn" data-trip-id="<?php echo $tripId; ?>">View Details</button>
                         <?php if ($isOwner): ?>
                             <form method="POST" class="trip-delete-form" onsubmit="return confirm('Delete this trip? This cannot be undone.');">
