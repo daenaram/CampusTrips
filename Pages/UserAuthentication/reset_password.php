@@ -49,6 +49,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <!DOCTYPE html>
 <html lang="en">
     <head>
+        <script src="/AUT-Web-Based-Travel-Planner/assets/js/pwa.js"></script>
         <meta charset="UTF-8">
         <title>Reset Password</title>
         <link rel="stylesheet" href="../../assets/css/loginformStyles.css">

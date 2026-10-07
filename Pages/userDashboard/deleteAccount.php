@@ -11,6 +11,7 @@ if (!isset($_SESSION['user_id'])) {
 
 <html>
     <head>
+        <script src="/AUT-Web-Based-Travel-Planner/assets/js/pwa.js"></script>
         <meta charset="UTF-8">
         <title>Delete Account</title>
         <link rel="stylesheet" href="../../assets/css/deleteAccount.css">

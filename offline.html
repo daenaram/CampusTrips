@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>You're offline | CampusTrips</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f3f4f6;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #111827;
+            text-align: center;
+            padding: 1.5rem;
+            box-sizing: border-box;
+        }
+        .offline-card {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            padding: 2.25rem 2rem;
+            max-width: 420px;
+        }
+        .offline-card img {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+        }
+        .offline-card h1 {
+            margin: 0 0 0.6rem;
+            font-size: 1.3rem;
+        }
+        .offline-card p {
+            margin: 0 0 1.25rem;
+            color: #6b7280;
+            line-height: 1.55;
+        }
+        .offline-retry-btn {
+            border: none;
+            border-radius: 999px;
+            padding: 0.6rem 1.4rem;
+            background: #0078d4;
+            color: #fff;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        .offline-retry-btn:hover {
+            background: #006bbd;
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-card">
+        <img src="/AUT-Web-Based-Travel-Planner/assets/images/icons/icon-192.png" alt="CampusTrips">
+        <h1>You're offline</h1>
+        <p>CampusTrips can't reach the server right now. Check your connection and try again — anything you had open earlier may still be available from cache.</p>
+        <button class="offline-retry-btn" onclick="location.reload()">Try again</button>
+    </div>
+</body>
+</html>

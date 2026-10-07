@@ -29,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_message'])) {
 <!DOCTYPE html>
 <html>
 <head>
+    <script src="/AUT-Web-Based-Travel-Planner/assets/js/pwa.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contact Us - CampusTrips</title>
