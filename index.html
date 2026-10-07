@@ -2,12 +2,13 @@
 <html lang="en">
 
 <head>
-    <script src="/AUT-Web-Based-Travel-Planner/assets/js/pwa.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AUT Travel Planner | CampusTrips</title>
     <link rel="stylesheet" href="assets/css/indexStyles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons Library -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
 <body>
@@ -18,50 +19,153 @@
                 <img src="assets/images/campustripslogo.png" alt="CampusTrips Logo" class="logo">
             </a>
             <ul class="navbar-menu">
-                <li><a href="../AUT-Web-Based-Travel-Planner/Pages/UserAuthentication/loginForm.html" style="font-weight: 600;">Log In</a></li>
-                <li><a href="../AUT-Web-Based-Travel-Planner/Pages/UserAuthentication/signup.html" class="signup-btn">Get Started</a></li>
+                <li><a href="../AUT-Web-Based-Travel-Planner/Pages/UserAuthentication/loginForm.html">Log In</a></li>
+                <li><a href="../AUT-Web-Based-Travel-Planner/Pages/UserAuthentication/signup.html"
+                        class="signup-btn">Get Started</a></li>
             </ul>
         </div>
     </nav>
+
 
     <main>
         <!-- HERO CAROUSEL -->
         <section class="hero">
             <div id="hero-carousel">
-                <!-- Images mapped to your uploaded files -->
                 <div class="hero-slide active" style="background-image: url('assets/images/dashboard-hero.jpg')"></div>
                 <div class="hero-slide" style="background-image: url('assets/images/img.jpg')"></div>
                 <div class="hero-slide" style="background-image: url('assets/images/img1.jpg')"></div>
             </div>
-            
+
             <div class="hero-overlay page-width">
                 <div class="hero-copy">
-                    <p class="eyebrow">AUT</p>
+                    <p class="eyebrow">ONE CAMPUS. ONE PLANNER.</p>
                     <h1 id="hero-title">Plan your Journey.<br>Own your schedule.</h1>
-                    <p class="hero-description" id="hero-desc">Plan your journey with ease and take control of your schedule.</p>
-                    
+                    <p class="hero-description">The unified travel companion for AUT research trips, field studies, and
+                        semester breaks.</p>
+
                 </div>
             </div>
 
             <div class="carousel-nav page-width">
                 <span id="slide-number">01 / 03</span>
                 <div class="nav-btns">
-                    <button id="prev-slide" aria-label="Previous slide"><img src="assets/images/left-arrow.png" alt="Previous slide"></button>
-                    <button id="next-slide" aria-label="Next slide"><img src="assets/images/right-arrow.png" alt="Next slide"></button>
+                    <button id="prev-slide" aria-label="Previous slide"><i data-lucide="chevron-left"></i></button>
+                    <button id="next-slide" aria-label="Next slide"><i data-lucide="chevron-right"></i></button>
                 </div>
             </div>
         </section>
 
         <!-- INTRO SECTION -->
-        <section class="intro page-width">
-            <h2>Explore the World<br>within one <em>App.</em></h2>
-            <div class="intro-grid">
-                <p>CampusTrips collects the sparks and turns them into a route. No tab chaos, just the long way home.
-                </p>
+        <section class="intro page-width reveal">
+            <div class="intro-container">
+                <div class="intro-text">
+                    <h2>One Platform.<br>Two Perspectives.<br><em>Infinite Journeys.</em></h2>
+                </div>
+                <div class="intro-content">
+                    <p class="lead">CampusTrips bridges the gap between academic responsibility and the spirit of exploration.
+                    </p>
+                    <div class="intro-split">
+                        <div class="split-item">
+                            <h4>For Students</h4>
+                            <p>Turn study breaks into adventures. Plan around your exam timetable and explore the world without
+                                breaking the bank.</p>
+                        </div>
+                        <div class="split-item">
+                            <h4>For Staff</h4>
+                            <p>Streamline research travel and field trip logistics. Professional tools for itinerary management
+                                and expense reporting.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
-        
+
+
+        <!-- Feature section -->
+        <section class="features page-width">
+            <div class="feature-header reveal">
+                <h2>Powerful Tools for <em>Academic</em> Travel.</h2>
+                <p>From grant-funded research to student budget adventures.</p>
+            </div>
+
+            <div class="feature-grid">
+                <!-- 1. Planning -->
+                <div class="feature-card reveal">
+                    <div class="icon-box">
+                        <i data-lucide="calendar-days"></i>
+                    </div>
+                    <h3>Smart Planning</h3>
+                    <p>Build day-by-day itineraries. Sync your Canvas or Outlook calendar to plan around lectures and
+                        conferences.</p>
+                </div>
+
+                <!-- 2. Search -->
+                <div class="feature-card reveal">
+                    <div class="icon-box">
+                        <i data-lucide="search"></i>
+                    </div>
+                    <h3>Global Search</h3>
+                    <p>Real-time lookup for flights, hotels, and activities. Filter by university-approved stays or
+                        student-friendly hostels.</p>
+                </div>
+
+                <!-- 3. Currency -->
+                <div class="feature-card reveal">
+                    <div class="icon-box">
+                        <i data-lucide="refresh-cw"></i>
+                    </div>
+                    <h3>Live Conversion</h3>
+                    <p>Live exchange rates for 150+ currencies. Instantly see costs in NZD for accurate personal
+                        budgeting or expense claims.</p>
+                </div>
+
+                <!-- 4. Budgeting -->
+                <div class="feature-card reveal">
+                    <div class="icon-box">
+                        <i data-lucide="wallet"></i>
+                    </div>
+                    <h3>Financial Tracking</h3>
+                    <p>Track spending against research grants or personal savings. Categorize expenses for easy
+                        end-of-trip reporting.</p>
+                </div>
+
+                <!-- 5. Sharing & Exporting -->
+                <div class="feature-card reveal">
+                    <div class="icon-box">
+                        <i data-lucide="file-up"></i>
+                    </div>
+                    <h3>Export & Share</h3>
+                    <p>Export professional PDF summaries for travel approvals. Share live collaboration links with your
+                        research team or friends.</p>
+                </div>
+
+                <!-- 6. Group Collaboration -->
+                <div class="feature-card reveal">
+                    <div class="icon-box">
+                        <i data-lucide="users"></i>
+                    </div>
+                    <h3>Group Sync</h3>
+                    <p>Invite colleagues or friends to co-edit itineraries. Perfect for coordinating field trips and
+                        group study tours.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats -->
+        <section class="stats-bar reveal">
+            <div class="page-width stats-container">
+                <div class="stat-item"><strong>100%</strong> <span>AUT Optimized</span></div>
+                <div class="stat-item"><strong>Global</strong> <span>Booking Access</span></div>
+                <div class="stat-item"><strong>Secure</strong> <span>Data Export</span></div>
+            </div>
+        </section>
     </main>
+
+    <footer class="footer">
+        <div class="page-width">
+            <p>&copy; 2026 CampusTrips | Designed for the AUT Community</p>
+        </div>
+    </footer>
 
     <script src="assets/js/index.js"></script>
 </body>
