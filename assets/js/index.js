@@ -3,7 +3,6 @@ const slides = document.querySelectorAll('.hero-slide');
 const nextBtn = document.getElementById('next-slide');
 const prevBtn = document.getElementById('prev-slide');
 const slideNum = document.getElementById('slide-number');
-
 let index = 0;
 
 function updateCarousel() {
@@ -15,29 +14,20 @@ function updateCarousel() {
 nextBtn.addEventListener('click', () => {
     index = (index + 1) % slides.length;
     updateCarousel();
-    resetTimer();
 });
 
 prevBtn.addEventListener('click', () => {
     index = (index - 1 + slides.length) % slides.length;
     updateCarousel();
-    resetTimer();
 });
 
-let autoPlay = setInterval(() => {
+// Auto-play carousel
+setInterval(() => {
     index = (index + 1) % slides.length;
     updateCarousel();
 }, 5000);
 
-function resetTimer() {
-    clearInterval(autoPlay);
-    autoPlay = setInterval(() => {
-        index = (index + 1) % slides.length;
-        updateCarousel();
-    }, 5000);
-}
-
-// Scroll Reveal Logic
+// Intersection Observer for Reveal Animations
 const observerOptions = { threshold: 0.15 };
 const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
