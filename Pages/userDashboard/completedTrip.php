@@ -69,8 +69,7 @@ if (!empty($trips) && is_array($trips)) {
 
                     <div class="trip-card-detail">
                         <strong>Dates</strong>
-                        <span><?php echo htmlspecialchars($trip['start_date']); ?> →
-                            <?php echo htmlspecialchars($trip['end_date']); ?></span>
+                        <span><?php echo date('d M Y', strtotime($trip['start_date'])); ?> → <?php echo date('d M Y', strtotime($trip['end_date'])); ?></span>
                     </div>
 
                     <!-- Total Budget Display -->
@@ -105,8 +104,8 @@ if (!empty($trips) && is_array($trips)) {
                     <div class="trip-details-summary">
                         <h4><?php echo htmlspecialchars($tripName); ?> <span style="color:#10b981;">✓ Completed</span></h4>
                         <p><strong>Destination:</strong> <?php echo htmlspecialchars($destination); ?></p>
-                        <p><strong>Dates:</strong> <?php echo htmlspecialchars($trip['start_date']); ?> →
-                            <?php echo htmlspecialchars($trip['end_date']); ?></p>
+                        <p><strong>Dates:</strong> <?php echo date('d M Y', strtotime($trip['start_date'])); ?> →
+                            <?php echo date('d M Y', strtotime($trip['end_date'])); ?></p>
                     </div>
 
                     <div class="trip-details-section">
