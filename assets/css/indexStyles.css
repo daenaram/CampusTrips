@@ -11,6 +11,22 @@
     box-sizing: border-box;
 }
 
+html {
+    /* This scales the entire page to 80% of its original size */
+    zoom: 0.8;
+    /* For browsers that don't support 'zoom' (like Firefox) */
+    -moz-transform: scale(0.8);
+    -moz-transform-origin: 0 0;
+}
+
+/* If using the Firefox fix above, you must ensure the body doesn't leave a gap */
+@-moz-document url-prefix() {
+    body {
+        width: 125%;
+        /* Compensates for the 0.8 scale (1 / 0.8 = 1.25) */
+    }
+}
+
 body {
     margin: 0;
     font-family: 'Inter', sans-serif;
@@ -22,7 +38,7 @@ body {
 .page-width {
     max-width: 1240px;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 50px;
 }
 
 /* Navbar */
@@ -41,7 +57,7 @@ body {
 }
 
 .logo-group img {
-    height: 4.5rem;
+    height: 4rem;
     width: auto;
 }
 
@@ -75,7 +91,7 @@ body {
 /* Hero */
 .hero {
     position: relative;
-    height: 100vh;
+    height: 125vh;
     background: var(--dark);
     color: white;
     display: flex;
@@ -117,7 +133,7 @@ body {
 }
 
 .hero-copy h1 {
-    font-size: clamp(2.5rem, 5vw, 3.8rem);
+    font-size: clamp(2rem, 4vw, 3rem);
     line-height: 1.1;
     margin-bottom: 1.5rem;
 }
@@ -166,13 +182,13 @@ body {
 
 .intro-container {
     display: grid;
-    grid-template-columns: 1fr 1.2fr;
-    gap: 4rem;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 2.5rem;
     align-items: start;
 }
 
 .intro-text h2 {
-    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-size: clamp(1.8rem, 3.5vw, 2.8rem);
     line-height: 1.1;
     margin: 0;
 }
@@ -183,22 +199,22 @@ body {
 }
 
 .intro-content .lead {
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     font-weight: 600;
-    margin-bottom: 2.5rem;
-    line-height: 1.4;
+    margin-bottom: 2rem;
+    line-height: 1.5;
 }
 
 .intro-split {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2rem;
+    gap: 1.5rem;
 }
 
 .split-item h4 {
     font-size: 0.85rem;
     text-transform: uppercase;
-    letter-spacing: 2px;
+    letter-spacing: 1.5px;
     color: var(--orange);
     margin-bottom: 0.5rem;
 }
@@ -251,7 +267,8 @@ body {
     transition: var(--transition);
     display: flex;
     flex-direction: column;
-    height: 380px;
+    height: auto;
+    min-height: 400px;
     border: 1px solid #eee;
 }
 
@@ -260,15 +277,14 @@ body {
 }
 
 .dest-img {
-    height: 200px;
-    min-height: 200px;
+    display: block !important;
+    height: 200px !important;
+    min-height: 200px !important;
     width: 100%;
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     position: relative;
-    display: block;
-    justify-content: flex-end;
 }
 
 .dest-save {
