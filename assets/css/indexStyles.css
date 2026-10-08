@@ -122,6 +122,43 @@ body {
     margin-bottom: 1.5rem;
 }
 
+.carousel-nav {
+    position: absolute;
+    bottom: 3rem;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    z-index: 20;
+    gap: 40px; 
+}
+
+#slide-number {
+    font-weight: 600;
+    font-size: 1rem;
+    letter-spacing: 1px;
+    min-width: 80px;
+}
+
+.nav-btns button {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.nav-btns button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--orange);
+    color: var(--orange);
+}
+
 /* Intro Section */
 .intro {
     padding: 4rem 0;
@@ -224,11 +261,13 @@ body {
 
 .dest-img {
     height: 200px;
+    min-height: 200px;
     width: 100%;
     background-size: cover;
     background-position: center;
+    background-repeat: no-repeat;
     position: relative;
-    display: flex;
+    display: block;
     justify-content: flex-end;
 }
 
