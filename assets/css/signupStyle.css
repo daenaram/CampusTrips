@@ -1,0 +1,242 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Cinzel:wght@700&display=swap');
+
+body {
+    background-color: #2c3e50 !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    overflow: hidden;
+}
+
+.passport-inner {
+    width: 750px;
+    background: #f4e4bc;
+    padding: 25px 40px;
+    border-radius: 5px;
+    box-shadow: 10px 10px 30px rgba(0, 0, 0, 0.5);
+    border: 1px solid #d3c4a0;
+    position: relative;
+}
+
+/*Close btn*/
+.floating-close-btn {
+    position: fixed;
+    top: 30px;
+    right: 30px;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    text-decoration: none;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    line-height: 45px;
+    text-align: center;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    transition: all 0.3s ease;
+    z-index: 9999;
+    font-family: Arial, sans-serif;
+}
+
+.floating-close-btn:hover {
+    background-color: #c0392b;
+    border-color: #c0392b;
+    transform: rotate(90deg);
+    color: white;
+}
+
+/* Header Section */
+.id-header {
+    border-bottom: 2px solid #333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.id-header h2 {
+    font-family: 'Cinzel', serif;
+    margin: 0;
+    font-size: 1.6rem;
+    text-transform: uppercase;
+}
+
+.id-header p {
+    font-size: 0.7rem;
+    margin: 5px 0;
+    letter-spacing: 1px;
+}
+
+/* Grid Layout */
+.id-grid {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 25px;
+}
+
+/* Photo Box */
+.aut-image .image-box {
+    width: 180px;
+    height: 210px;
+    background: #000;
+    border: 2px solid #888;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.aut-image img {
+    width: 80%;
+}
+
+/* Data Fields - Force vertical stack */
+.data-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.id-field {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+}
+
+.id-field label {
+    font-size: 0.7rem;
+    font-weight: bold;
+    margin-bottom: 2px;
+    color: #333;
+}
+
+.id-field input {
+    width: 100%;
+    border: none;
+    border-bottom: 1px solid #333;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 5px 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1rem;
+    outline: none;
+}
+
+/* Password Requirements - 2 Column Grid to save space */
+.password-requirements {
+    margin-top: 8px;
+    padding-left: 18px;
+    font-size: 10px;
+}
+
+.password-requirements li {
+    margin-bottom: 4px;
+    color: red;
+    list-style-type: none;
+}
+
+.password-requirements li.valid {
+    color: green;
+}
+
+.password-requirements li.valid::before {
+    content: "✔ ";
+}
+
+.password-requirements li::before {
+    content: "✖ ";
+}
+
+/* MRZ Zone */
+.mrz-zone {
+    grid-column: span 2;
+    background: rgba(0, 0, 0, 0.05);
+    padding: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    border: 1px solid #ccc;
+    margin-top: 15px;
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+/* Action Zone */
+.action-zone {
+    grid-column: span 2;
+    text-align: center;
+    margin-top: 15px;
+}
+
+.register-btn {
+    background: #c0392b;
+    color: white;
+    border: none;
+    padding: 10px 40px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 2px 2px 0px #7b241c;
+}
+
+/* Stamp */
+.pendingstamp {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    border: 1px solid #c0392b;
+    color: #c0392b;
+    padding: 2px 5px;
+    transform: rotate(-5deg);
+    opacity: 0.6;
+}
+
+.backbtn {
+    font-size: 0.85rem;
+    margin-top: 20px;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.backbtn a {
+    color: #002244;
+    /* Passport Navy */
+    text-decoration: none;
+    font-weight: bold;
+    border-bottom: 1px solid #002244;
+    padding-bottom: 2px;
+    transition: all 0.3s ease;
+}
+
+.backbtn a:hover {
+    color: #c0392b;
+    /* Stamp Red */
+    border-bottom-color: #c0392b;
+}
+
+/* --- MODAL FIX --- */
+.modal-overlay {
+    display: none;
+    /* Hides the error message by default */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-box {
+    background: white;
+    padding: 20px;
+    border-radius: 5px;
+    text-align: center;
+    max-width: 400px;
+}
+

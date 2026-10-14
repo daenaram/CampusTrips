@@ -1,0 +1,261 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Cinzel:wght@700&display=swap');
+
+/* ==========================================================================
+   PASSPORT BOOK STYLES
+   ========================================================================== */
+body {
+    background-color: #2c3e50;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.floating-close-btn {
+    position: fixed;
+    top: 30px;
+    right: 30px;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    text-decoration: none;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    line-height: 45px;
+    text-align: center;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    transition: all 0.3s ease;
+    z-index: 9999;
+    font-family: Arial, sans-serif;
+}
+
+.floating-close-btn:hover {
+    background-color: #c0392b;
+    border-color: #c0392b;
+    transform: rotate(90deg);
+    color: white;
+}
+
+.book {
+    position: relative;
+    width: 380px;
+    height: 600px;
+    background: #fdf5e6;
+    border-radius: 10px;
+    box-shadow: 20px 20px 50px rgba(0, 0, 0, 0.5);
+    transform-style: preserve-3d;
+    perspective: 2000px;
+    cursor: pointer;
+    transition: transform 0.5s;
+    overflow: hidden;
+}
+
+/* The Cover */
+.passport-cover {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 2 !important;
+    background-color: #002244 !important;
+    border-radius: 10px;
+    transform-origin: left;
+    transition: transform 0.8s cubic-bezier(0.645, 0.045, 0.355, 1);
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    backface-visibility: hidden;
+    border: 1px solid #001a33;
+    padding: 0;
+    margin: 0;
+}
+
+.book.open .passport-cover {
+    transform: rotateY(-165deg);
+    pointer-events: none;
+
+}
+
+.passport-front {
+    text-align: center;
+    color: #e59a30;
+    padding: 20px;
+}
+
+.passport-front h1 {
+    letter-spacing: 5px;
+    font-size: 2rem;
+    margin: 10px 0;
+}
+
+.logo {
+    width: 80px;
+    filter: brightness(70%) invert(84%) sepia(26%) saturate(792%) hue-rotate(357deg);
+}
+
+.hint {
+    display: block;
+    margin-top: 100px;
+    font-size: 0.7rem;
+    opacity: 0.6;
+}
+
+/* ==========================================================================
+   FORM CONTENT STYLES
+   ========================================================================== */
+.login-page {
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+    z-index: 1;
+    background: #f4e4bc;
+}
+
+h2 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.input-group {
+    margin-bottom: 10px;
+    padding: 5px;
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 5px;
+    font-family: 'Cinzel', serif;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+input:focus {
+    outline: none;
+    border-color: #002244;
+    box-shadow: 0 0 5px rgba(0, 34, 68, 0.2);
+}
+
+.form-options .forgot {
+    color: #0056b3;
+    justify-content: space-between;
+}
+
+.form-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    font-size: 0.85rem;
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    color: white;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.loginbtn {
+    background-color: #0759ab;
+}
+
+.signbtn {
+    background-color: #002244;
+}
+
+button:hover {
+    background-color: #157ce3;
+}
+
+
+.divider {
+    display: flex;
+    align-items: center;
+    color: #777;
+    padding: 7px;
+}
+
+.divider::before,
+.divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #ccc;
+    margin: 0 10px;
+}
+
+/* Social Buttons */
+.social_con {
+    display: flex;
+    gap: 5px;
+    flex-direction: column;
+    margin-bottom: 10px;
+}
+
+.social_btn {
+    background: #fff;
+    width: 100%;
+    color: #333333;
+    border: 1px solid #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 15px;
+}
+
+.social_btn img {
+    width: 20px;
+    border-radius: 3px;
+}
+
+.loginMessage {
+    text-align: center;
+    font-size: 0.8rem;
+    margin-top: 10px;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}

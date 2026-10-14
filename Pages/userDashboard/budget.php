@@ -110,6 +110,7 @@ function getTripBudgetSummary(PDO $pdo, int $tripId, int $userId): array
         'trip_id'         => $tripId,
         'category_totals' => $categoryTotals,
         'grand_total'     => round($grandTotal, 2),
+        'display_total'   => displayAmountInNZD($pdo, $grandTotal),
         'budget_cap'      => $budgetCap,
         'custom_items'    => $customItems,
     ];
@@ -457,7 +458,11 @@ $categoryOptions = ['Flights', 'Accommodation', 'Activities', 'Food', 'Transport
     const BUDGET_CURRENCIES = <?php echo json_encode($supportedCurrencies); ?>;
     const BUDGET_CATEGORIES = <?php echo json_encode($categoryOptions); ?>;
     let SELECTED_TRIP_ID = <?php echo $selectedTripId ? (int) $selectedTripId : 'null'; ?>;
+
+    //Saving currency through settings.php
+    const USER_PREF_CURRENCY = "<?php echo $_SESSION['currency'] ?? 'NZD'; ?>";
 </script>
+
 
 <script>
     // ---------- Hamburger menu behaviour (same as dashboard) ----------

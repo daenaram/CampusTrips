@@ -16,8 +16,26 @@
     // the server response for each write already gives us the updated summary.
     const budgetData = Object.assign({}, BUDGET_DATA);
 
-    function formatCurrency(value) {
-        return 'NZD ' + Number(value).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    function formatCurrency(value, tripId) {
+
+        if (budgetData[tripId] && budgetData[tripId].display_total && value === budgetData[tripId].grand_total) {
+            return budgetData[tripId].display_total;
+        } try {
+            return new Intl.NumberFormat('en-NZ', {
+                style: 'currency',
+                currency: USER_PREF_CURRENCY // This variable comes from the <script> in budget.php
+            }).format(value);
+        } catch (e) {
+            return USER_PREF_CURRENCY + ' ' + Number(value).toFixed(2);
+        }
+    }
+
+    //Format the price based on the user's selected currency
+    function formatUserPrice(amountNzd) {
+        // If user wants NZD, just format it
+        if (USER_PREF_CURRENCY === 'NZD') {
+            return 'NZD ' + parseFloat(amountNzd).toLocaleString(undefined, { minimumFractionDigits: 2 });
+        } return 'NZD ' + parseFloat(amountNzd).toLocaleString(undefined, { minimumFractionDigits: 2 });
     }
 
     //Format the amount to using the correct symbol or decimal for any currency. JPY/KRW does not uses .00
@@ -30,7 +48,7 @@
                 }).format(amount);
         } catch (e) {
             return Number(amount).toFixed(2) + ' ' + currencyCode;
-            }
+        }
     }
 
     function getTripById(tripId) {
@@ -71,7 +89,7 @@
                 <div class="budget-breakdown-row">
                     <div class="budget-breakdown-label">
                         <span>${escapeHtml(cat)}</span>
-                        <span>${formatCurrency(amount)} (${pct}%)</span>
+                        <span>${formatCurrency(amount, tripId)} (${pct}%)</span>
                     </div>
                     <div class="budget-breakdown-bar-track">
                         <div class="budget-breakdown-bar-fill" style="width:${pct}%;"></div>
@@ -107,13 +125,13 @@
 
                 <div class="budget-grand-total">
                     <span class="budget-grand-total-label">Total Trip Cost</span>
-                    <span class="budget-grand-total-value" id="budgetGrandTotal">${formatCurrency(grandTotal)}</span>
+                    <span class="budget-grand-total-value" id="budgetGrandTotal">${formatCurrency(grandTotal, tripId)}</span>
                 </div>
 
                 ${hasBudgetCap && grandTotal > budgetCap ? `
                     <div class="budget-cap-warning" role="alert">
                         <strong>Spending exceeds the set budget cap.</strong>
-                        <span>You are ${formatCurrency(grandTotal - budgetCap)} over your ${formatCurrency(budgetCap)} cap. You can continue planning.</span>
+                        <span>You are ${formatCurrency(grandTotal - budgetCap, tripId)} over your ${formatCurrency(budgetCap)} cap. You can continue planning.</span>
                     </div>` : ''}
 
                 <form id="budgetCapForm" class="budget-cap-form">

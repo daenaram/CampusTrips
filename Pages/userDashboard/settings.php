@@ -1,6 +1,9 @@
 <?php
 // Start session to access user data
 session_start();
+require_once __DIR__ . '/../../assets/api/config/database.php';
+require_once __DIR__ . '../../../assets/api/helpers/currencyHelper.php';
+
 
 // Redirect to login if user is not authenticated
 if (!isset($_SESSION['user_id'])) {
@@ -286,12 +289,22 @@ if (!isset($_SESSION['user_id'])) {
             </div>
 
             <div class="settings-option">
-                <div class="settings-option-text">
-                    <strong>Currency</strong>
-                    <span>Choose the currency used when displaying travel costs.</span>
-                </div>
-                <select class="settings-select" id="currencySetting">
-                    <option value="NZD">NZD - New Zealand Dollar</option>
+    <div class="settings-option-text">
+        <strong>Currency</strong>
+        <span>Choose the currency used when displaying travel costs.</span>
+    </div>
+    <select class="settings-select" id="currencySetting">
+        <?php
+                    // Get the list from the helper
+                    $currencies = getSupportedCurrencies();
+                    // Get user's current choice from session (default to NZD)
+                    $current = $_SESSION['currency'] ?? 'NZD';
+
+                    foreach ($currencies as $code) {
+                        $selected = ($code === $current) ? 'selected' : '';
+                        echo "<option value=\"$code\" $selected>$code</option>";
+                    }
+                    ?>
                 </select>
             </div>
         </section>
@@ -526,6 +539,29 @@ if (!isset($_SESSION['user_id'])) {
                     pushTest.disabled = false;
                 });
         });
+        document.getElementById('saveSettings').addEventListener('click', function() {
+    const selectedCurrency = document.getElementById('currencySetting').value;
+
+    // Create a request to save the currency to the session
+    const formData = new FormData();
+    formData.append('currency', selectedCurrency);
+
+    fetch('save_settings.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            alert('Settings saved! Currency set to ' + selectedCurrency);
+            window.location.reload(); // Reload to apply changes globally
+        }
+    })
+    .catch(err => alert('Error saving settings.'));
+});
+
+
+        
     </script>
 </body>
 </html>
