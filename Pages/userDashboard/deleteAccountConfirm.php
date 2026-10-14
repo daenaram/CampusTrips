@@ -42,6 +42,11 @@ try {
         ':id' => $user_id
     ]);
 
+    // Stop pushing reminders to this person's devices. (users is MyISAM,
+    // so there's no foreign key to cascade this automatically.)
+    $pdo->prepare("DELETE FROM push_subscriptions WHERE user_id = ?")->execute([$user_id]);
+    $pdo->prepare("DELETE FROM push_reminder_log WHERE user_id = ?")->execute([$user_id]);
+
     //clear all session variables and destroy the session
     session_unset();
     session_destroy();

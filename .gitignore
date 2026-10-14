@@ -1,0 +1,2 @@
+# Web Push VAPID key pair — generated per installation, private key must stay secret
+assets/api/config/vapidKeys.php

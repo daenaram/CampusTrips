@@ -18,7 +18,7 @@
  * Bump CACHE_VERSION to roll out a new app-shell precache and drop old ones.
  */
 
-const CACHE_VERSION = 'campustrips-v1';
+const CACHE_VERSION = 'campustrips-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGES_CACHE = `${CACHE_VERSION}-pages`;
 const OFFLINE_URL = '/AUT-Web-Based-Travel-Planner/offline.html';
@@ -70,6 +70,59 @@ self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'CLEAR_PAGES_CACHE') {
         event.waitUntil(caches.delete(PAGES_CACHE));
     }
+});
+
+// ---------- Push notifications ----------
+// Pushes are sent by assets/api/notifications/sendDueReminders.php. The
+// browser wakes this worker to handle them even when no CampusTrips tab is
+// open, which is what lets reminders arrive while the app is closed.
+const APP_ROOT = '/AUT-Web-Based-Travel-Planner';
+const DASHBOARD_URL = `${APP_ROOT}/Pages/userDashboard/Dashboard.php`;
+
+self.addEventListener('push', (event) => {
+    let message = {};
+    if (event.data) {
+        try {
+            message = event.data.json();
+        } catch (err) {
+            message = { body: event.data.text() };
+        }
+    }
+
+    event.waitUntil(
+        self.registration.showNotification(message.title || 'CampusTrips reminder', {
+            body: message.body || '',
+            icon: `${APP_ROOT}/assets/images/icons/icon-192.png`,
+            badge: `${APP_ROOT}/assets/images/icons/icon-192.png`,
+            // Same tag replaces rather than stacks a repeat of one reminder.
+            tag: message.tag,
+            data: { url: message.url || DASHBOARD_URL },
+        })
+    );
+});
+
+// Clicking a notification opens the trip it's about. An already-open
+// CampusTrips tab is reused when possible; otherwise a new window opens.
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+
+    let target = new URL((event.notification.data && event.notification.data.url) || DASHBOARD_URL, self.location.origin);
+    // Never let a payload send the user off-site.
+    if (target.origin !== self.location.origin || !target.pathname.startsWith(`${APP_ROOT}/`)) {
+        target = new URL(DASHBOARD_URL, self.location.origin);
+    }
+
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window' }).then((windows) => {
+            const existing = windows.find((client) => new URL(client.url).pathname.startsWith(`${APP_ROOT}/`));
+            if (existing) {
+                return existing.focus()
+                    .then((client) => client.navigate(target.href))
+                    .catch(() => self.clients.openWindow(target.href));
+            }
+            return self.clients.openWindow(target.href);
+        })
+    );
 });
 
 function isStaticAsset(url) {

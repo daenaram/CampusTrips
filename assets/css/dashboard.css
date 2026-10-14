@@ -571,6 +571,100 @@ body {
     color: #991b1b;
 }
 
+/* First-login "turn on notifications?" prompt */
+.push-prompt {
+    max-width: 1100px;
+    margin: 1rem auto 0;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    border-radius: 12px;
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    color: #1e3a8a;
+    box-sizing: border-box;
+}
+
+.push-prompt[hidden],
+.push-prompt-actions[hidden] {
+    display: none;
+}
+
+.push-prompt.success {
+    border-color: #bbf7d0;
+    background: #dcfce7;
+    color: #166534;
+}
+
+.push-prompt.neutral {
+    border-color: #e5e7eb;
+    background: #f9fafb;
+    color: #374151;
+}
+
+.push-prompt.error {
+    border-color: #fecaca;
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.push-prompt-text {
+    flex: 1 1 320px;
+}
+
+.push-prompt-text p {
+    margin: 0.25rem 0 0;
+    font-size: 0.9rem;
+}
+
+.push-prompt-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.push-prompt-primary,
+.push-prompt-secondary {
+    padding: 0.55rem 1rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.push-prompt-primary {
+    background: #0072ac;
+    color: #fff;
+}
+
+.push-prompt-primary:disabled {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.push-prompt-secondary {
+    background: transparent;
+    color: inherit;
+    text-decoration: underline;
+}
+
+.push-prompt-link {
+    color: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+@media (max-width: 600px) {
+    .push-prompt {
+        margin: 1rem 1rem 0;
+    }
+}
+
 /* "Export as PDF" prints via the browser's native print dialog rather than
    a custom preview UI — that dialog already provides the preview pane plus
    layout, copies and "Save as PDF" controls. #pdf-print-area is filled in
