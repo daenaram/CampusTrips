@@ -11,25 +11,10 @@
     box-sizing: border-box;
 }
 
-html {
-    /* This scales the entire page to 80% of its original size */
-    zoom: 0.8;
-    /* For browsers that don't support 'zoom' (like Firefox) */
-    -moz-transform: scale(0.8);
-    -moz-transform-origin: 0 0;
-}
-
-/* If using the Firefox fix above, you must ensure the body doesn't leave a gap */
-@-moz-document url-prefix() {
-    body {
-        width: 125%;
-        /* Compensates for the 0.8 scale (1 / 0.8 = 1.25) */
-    }
-}
 
 body {
     margin: 0;
-    font-family: 'Inter', sans-serif;
+    font-family: Arial, Helvetica, sans-serif;
     color: var(--dark);
     background: var(--light-bg);
     overflow-x: hidden;
@@ -91,7 +76,7 @@ body {
 /* Hero */
 .hero {
     position: relative;
-    height: 125vh;
+    height: 100vh;
     background: var(--dark);
     color: white;
     display: flex;

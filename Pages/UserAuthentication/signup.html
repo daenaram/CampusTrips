@@ -1,45 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <script src="/AUT-Web-Based-Travel-Planner/assets/js/pwa.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="../../assets/css/loginformStyles.css">
+    <link rel="stylesheet" href="../../assets/css/signupStyle.css">
+    <!--<link rel="stylesheet" href="../../assets/css/loginformStyles.css">-->
+
+        <link rel="stylesheet" href="../../assets/css/signupStyle.css">
     <title>AUT Web-Based Travel Planner</title>
 </head>
+
 <body>
 
-    <div class="logo_container">
-        <a href="../../index.html"><img
-                src="../../assets/images/aut_logo.svg"
-                alt="Auckland University of Technology Logo (AUT)" class="AUT-logo"></a>
+    <!--Close btn to return back to index.html-->
+    <a href="../../index.html" class="floating-close-btn">&times;</a>
+
+    <div class="passport-inner">
+        <div class="pendingstamp">Pending</div>
+        <div class="id-header">
+            <h2>New Traveler Registeration</h2>
+            <p>AUT OFFICIAL DOCUMENT / TRAVEL DIVISION</p>
+        </div>
+
+
+
+        <form class="id-grid" method="POST" action="../../assets/api/auth/signup.php">
+            <!--Left side of the page = default image of aut-->
+            <div class="aut-image">
+                <div class="image-box">
+                    <img src="../../assets/images/aut_logo.svg" style="width: 80%; height: auto;">
+                </div>
+            </div>
+
+            <!--Right side of the page = fill in data -->
+            <div class="data-section">
+                <div class="id-field">
+                    <label>Name:</label>
+                    <input type="text" id="name" name="name" style="text-transform: uppercase;" required>
+                    <label for="email">Email: <span class="note">*</span></label>
+                    <input type="email" id="email" name="email" required>
+                    <label>Travel Code (Password):<span class="note">*</span></label>
+                    <input type="password" id="password" name="password" required>
+                    <ul class="password-requirements">
+                        <li id="length">At least 8 characters</li>
+                        <li id="uppercase">Contains an uppercase letter</li>
+                        <li id="number">Contains a number</li>
+                        <li id="symbol">Contains a symbol</li>
+                    </ul>
+                    <label>Confirm Travel Code (Password):<span class="note">*</span></label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required>
+                </div>
+            </div>
+
+            <div class="mrz-zone">
+                P&lt;AUT&lt;TRAVELER&lt;&lt;REGISTRATION&lt;FORM&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;<br>
+                A998877665&lt;NZL0000000M0000000&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+            </div>
+
+            <div class="action-zone">
+                <button type="submit" class="register-btn">Issue Passport</button>
+                <p class="backbtn">Already have a passport? <a href="loginForm.html">Login Here</a></p>
+            </div>
     </div>
-
-    <h1>AUT Web-Based Travel Planner</h1>
-    <h2>Create a New Account</h2>
-
-    <form method="POST" action="../../assets/api/auth/signup.php">
-        <br>
-        <label for="name">Name:</label>
-        <input type="text" id="name" name="name">
-        <br>
-        <label for="email">Email: <span class="note">*</span></label>
-        <input type="email" id="email" name="email" required>
-        <br>
-        <label for="password">Password: <span class="note">*</span></label>
-        <input type="password" id="password" name="password" required>
-        <ul class="password-requirements">
-                <li id="length">At least 8 characters</li>
-                <li id="uppercase">Contains an uppercase letter</li>
-                <li id="number">Contains a number</li>
-                <li id="symbol">Contains a symbol</li>
-            </ul>
-        
-        <label for="confirmPassword">Confirm Password: <span class="note">*</span></label>
-        <input type="password" id="confirmPassword" name="confirmPassword" required>
-        <br>
-        <button type="submit">Sign Up</button>
-        <button type="backButton" onclick="location.href='loginForm.html'">Already have an account? Login</button>
     </form>
 
     <!-- Error Modal -->
@@ -58,4 +82,5 @@
     <script src="../../assets/js/signup.js"></script>
 
 </body>
+
 </html>
