@@ -3,13 +3,18 @@
 session_start();
 
 // Redirect to login if user is not authenticated. A shared trip link
-// (?shared_token=...) survives this round trip via login.php's whitelisted
-// "redirect" param, so signing in lands back here with it still attached.
+// (?shared_token=...) or a reminder notification's trip link (?open_trip=...)
+// survives this round trip via login.php's whitelisted "redirect" param, so
+// signing in lands back here with it still attached.
 if (!isset($_SESSION['user_id'])) {
     $loginUrl = "/AUT-Web-Based-Travel-Planner/Pages/UserAuthentication/loginForm.html";
     $incomingSharedToken = trim($_GET['shared_token'] ?? '');
+    $incomingOpenTrip = (int) ($_GET['open_trip'] ?? 0);
     if ($incomingSharedToken !== '') {
         $returnTo = '/AUT-Web-Based-Travel-Planner/Pages/userDashboard/Dashboard.php?shared_token=' . urlencode($incomingSharedToken);
+        $loginUrl .= '?redirect=' . urlencode($returnTo);
+    } elseif ($incomingOpenTrip > 0) {
+        $returnTo = '/AUT-Web-Based-Travel-Planner/Pages/userDashboard/Dashboard.php?open_trip=' . $incomingOpenTrip;
         $loginUrl .= '?redirect=' . urlencode($returnTo);
     }
     header("Location: {$loginUrl}");
@@ -695,6 +700,18 @@ try {
     error_log('Trip load error: ' . $e->getMessage());
 }
 
+// First-login prompt to turn on push notifications: shown until the user
+// answers it once (Allow or Not now). Whether it's actually displayed is
+// decided in the browser too — not if push is unsupported or already on.
+$showPushPrompt = false;
+try {
+    $pushPromptStmt = $pdo->prepare("SELECT push_prompted_at FROM users WHERE id = ?");
+    $pushPromptStmt->execute([$_SESSION['user_id']]);
+    $showPushPrompt = $pushPromptStmt->fetchColumn() === null;
+} catch (PDOException $e) {
+    error_log('Push prompt check error: ' . $e->getMessage());
+}
+
 // Flattened, JS-friendly trip data used for the "Export as PDF" feature
 $pdfExportData = [];
 foreach ($trips as $trip) {
@@ -714,6 +731,7 @@ foreach ($trips as $trip) {
 <html>
 <head>
     <script src="/AUT-Web-Based-Travel-Planner/assets/js/pwa.js"></script>
+    <script src="/AUT-Web-Based-Travel-Planner/assets/js/pushNotifications.js?v=2"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Dashboard</title>
@@ -898,9 +916,84 @@ foreach ($trips as $trip) {
  </script>
  
 
+<!-- First-login push notification prompt. Sits below the search card, which
+     overlaps the hero (negative margin) and would cover anything above it. -->
+<?php if ($showPushPrompt): ?>
+    <section class="push-prompt" id="pushPrompt" aria-labelledby="pushPromptTitle" hidden>
+        <div class="push-prompt-text">
+            <strong id="pushPromptTitle">Never miss a trip reminder</strong>
+            <p id="pushPromptMessage" role="status" aria-live="polite">Turn on browser notifications to get reminders about your upcoming trips and activities — even when CampusTrips is closed.</p>
+        </div>
+        <div class="push-prompt-actions" id="pushPromptAsk">
+            <button type="button" class="push-prompt-primary" id="pushPromptAllow">Allow notifications</button>
+            <button type="button" class="push-prompt-secondary" id="pushPromptLater">Not now</button>
+        </div>
+        <div class="push-prompt-actions" id="pushPromptDone" hidden>
+            <a class="push-prompt-link" href="settings.php">Notification settings</a>
+            <button type="button" class="push-prompt-secondary" id="pushPromptClose">Dismiss</button>
+        </div>
+    </section>
+    <script>
+        (function () {
+            const prompt = document.getElementById('pushPrompt');
+            const title = document.getElementById('pushPromptTitle');
+            const message = document.getElementById('pushPromptMessage');
+            const askActions = document.getElementById('pushPromptAsk');
+            const doneActions = document.getElementById('pushPromptDone');
+            const allowBtn = document.getElementById('pushPromptAllow');
+
+            // Only ask when there's something to ask: an unsupported browser
+            // can't enable push, and a blocked or already-enabled one has no
+            // decision to make here (Settings covers both).
+            CampusPush.getState()
+                .then(function (state) {
+                    prompt.hidden = state !== 'off';
+                })
+                .catch(function () {});
+
+            function showOutcome(kind, heading, text) {
+                prompt.classList.remove('success', 'neutral', 'error');
+                prompt.classList.add(kind);
+                title.textContent = heading;
+                message.textContent = text;
+                askActions.hidden = true;
+                doneActions.hidden = false;
+            }
+
+            allowBtn.addEventListener('click', function () {
+                CampusPush.markPrompted();
+                allowBtn.disabled = true;
+                allowBtn.textContent = 'Enabling…';
+
+                CampusPush.enable()
+                    .then(function () {
+                        showOutcome('success', 'Notifications enabled',
+                            'You\'ll get reminders about your upcoming travel on this browser and device, even when CampusTrips is closed.');
+                    })
+                    .catch(function (err) {
+                        if (err.code === 'denied' || err.code === 'dismissed') {
+                            showOutcome('neutral', 'No problem',
+                                'You won\'t receive push notifications, and everything else in CampusTrips works as normal. You can turn them on any time in Settings.');
+                        } else {
+                            showOutcome('error', 'Notifications couldn\'t be turned on',
+                                err.message + ' You can try again from Settings.');
+                        }
+                    });
+            });
+
+            document.getElementById('pushPromptLater').addEventListener('click', function () {
+                CampusPush.markPrompted();
+                prompt.hidden = true;
+            });
+
+            document.getElementById('pushPromptClose').addEventListener('click', function () {
+                prompt.hidden = true;
+            });
+        })();
+    </script>
+<?php endif; ?>
+
 <!-- Saved trips -->
-
-
  <div class="savedTrips">
     
     <div class="savedTrips-header">
@@ -2057,8 +2150,9 @@ foreach ($trips as $trip) {
     });
 
     <?php if (isset($_GET['open_trip'])): ?>
-        // Arrived here via a shared trip link — open that trip's details
-        // straight away instead of leaving the visitor to find it in the list.
+        // Arrived here via a shared trip link or a reminder notification —
+        // open that trip's details straight away instead of leaving the
+        // visitor to find it in the list.
         window.addEventListener('DOMContentLoaded', function () {
             const openBtn = document.querySelector('.view-details-btn[data-trip-id="<?php echo (int) $_GET['open_trip']; ?>"]');
             if (openBtn) {

@@ -42,6 +42,13 @@ try {
         ");
     }
 
+    // When the user answered the dashboard's "turn on notifications?" prompt
+    // (NULL = never shown/answered), so it only appears on first login.
+    $pushPromptedColumn = $pdo->query("SHOW COLUMNS FROM users LIKE 'push_prompted_at'")->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($pushPromptedColumn)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN push_prompted_at DATETIME NULL DEFAULT NULL");
+    }
+
     // Trips
     $pdo->exec("CREATE TABLE IF NOT EXISTS trips (
         id           INT AUTO_INCREMENT PRIMARY KEY,
@@ -289,6 +296,33 @@ try {
         rate_to_nzd  DECIMAL(12,6) NOT NULL,
         updated_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )");
+
+    // Web Push subscriptions — one row per browser/device a user has
+    // enabled push notifications on. Endpoints can be long, so uniqueness
+    // is enforced on a hash of the endpoint rather than the URL itself.
+    // No foreign key to users: users may be MyISAM, which InnoDB can't
+    // reference — deleteAccountConfirm.php removes these rows instead.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id            INT AUTO_INCREMENT PRIMARY KEY,
+        user_id       INT           NOT NULL,
+        endpoint      VARCHAR(1000) NOT NULL,
+        endpoint_hash CHAR(64)      NOT NULL UNIQUE,
+        p256dh        VARCHAR(255)  NOT NULL,
+        auth          VARCHAR(255)  NOT NULL,
+        user_agent    VARCHAR(255)  NULL,
+        created_at    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        INDEX (user_id)
+    ) ENGINE=InnoDB");
+
+    // Which reminders have already been pushed, so the scheduled sender
+    // (sendDueReminders.php) never notifies about the same thing twice.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS push_reminder_log (
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        user_id      INT          NOT NULL,
+        reminder_key VARCHAR(100) NOT NULL,
+        sent_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY user_reminder_unique (user_id, reminder_key)
+    ) ENGINE=InnoDB");
 
     // Seed dummy data quietly after table creation
     require_once __DIR__ . '/dummyData.php';

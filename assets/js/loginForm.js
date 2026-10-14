@@ -76,7 +76,11 @@ window.loginWithGoogle = function () {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ idToken: idToken })
+                body: JSON.stringify({
+                    idToken: idToken,
+                    // Same "come back here after login" target the password form posts
+                    redirect: document.getElementById('redirectField')?.value || null
+                })
             });
         })
         .then((response) => {

@@ -2,6 +2,7 @@
 session_start();
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../helpers/redirectHelper.php';
 
 header('Content-Type: application/json');
 
@@ -59,7 +60,9 @@ try {
     $_SESSION['name'] = $name;
     $_SESSION['email'] = $email;
 
-    echo json_encode(['success' => true, 'redirect' => '/AUT-Web-Based-Travel-Planner/Pages/userDashboard/Dashboard.php']);
+    $dashboardUrl = '/AUT-Web-Based-Travel-Planner/Pages/userDashboard/Dashboard.php';
+    $requestedRedirect = is_string($input['redirect'] ?? null) ? $input['redirect'] : null;
+    echo json_encode(['success' => true, 'redirect' => safePostLoginRedirect($requestedRedirect, $dashboardUrl)]);
 
 } catch (Exception $e) {
     error_log("Google login error: " . $e->getMessage());

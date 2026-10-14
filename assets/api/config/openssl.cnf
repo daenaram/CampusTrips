@@ -1,0 +1,6 @@
+# Minimal OpenSSL config for webPushHelper.php. PHP on Windows (WAMP) ships
+# without a usable default openssl.cnf, which makes openssl_pkey_new() fail
+# when generating the EC keys Web Push needs. Pointing PHP at this file
+# avoids having to edit php.ini on every developer's machine.
+[ req ]
+default_bits = 2048
