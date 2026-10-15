@@ -9,7 +9,9 @@ if (!empty($trips) && is_array($trips)) {
     foreach ($trips as $trip) {
         $endDate = new DateTime($trip['end_date']);
         $endDate->setTime(0, 0, 0);
-        if ($endDate <= $currentDate) {
+        // if ($endDate <= $currentDate) {  
+        //*bug found related to the completed trips mitigated by:
+        if($endDate < $currentDate) {
             $completedTrips[] = $trip;
         }
     }

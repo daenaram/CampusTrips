@@ -13,6 +13,8 @@ require_once __DIR__ . '/../../assets/api/dashboard/searchflights.php';
 require_once __DIR__ . '/../../assets/api/dashboard/searchHotel.php';
 require_once __DIR__ . '/../../assets/api/dashboard/searchActivities.php';
 require_once __DIR__ . '/../../assets/api/helpers/categoryHelper.php';
+require_once __DIR__ . '/../../assets/api/helpers/currencyHelper.php';
+require_once __DIR__ . '/../../assets/api/helpers/budgetHelper.php';
 
 function renderTripSelectOptions(array $trips, ?int $selectedTripId = null): string {
     $html = '<option value="">Choose a trip</option>';
@@ -573,7 +575,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                                 <div class="price-section">
                                     <div class="price-per-night">
                                         <span class="label">per night</span>
-                                        <span class="amount">NZD <?php echo htmlspecialchars(number_format($acc['price_per_night_nzd'], 0)); ?></span>
+                                        <span class="amount"><?php echo displayAmountInNZD($pdo,$acc['price_per_night_nzd']); ?></span>
                                     </div>
                                     <button type="button" class="add-btn open-trip-modal-btn"
                                         data-item-type="accommodation"
@@ -638,7 +640,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                             <div class="activity-price">
                                 <span class="label">Price</span>
                                 <span class="amount">
-                                    NZD <?php echo htmlspecialchars(number_format($activity['cost_nzd'], 0)); ?>
+                                <?php echo displayAmountInNZD($pdo, $activity['cost_nzd']); ?>
                                 </span>
                             </div>
 <!-- data-activity-date-value="<?php echo htmlspecialchars($activity['activity_date']); ?>" -->
@@ -718,8 +720,7 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                             <div class="flight-card-price">
                                 <div class="cabin-class">Economy</div>
                                 <div class="price-tag">
-                                    <span class="currency">NZD</span>
-                                    <span class="amount"><?php echo htmlspecialchars(number_format($flight['price_nzd'], 0)); ?></span>
+                                    <span class="amount"><?php echo displayAmountInNZD($pdo, $flight['price_nzd']); ?></span>
                                 </div>
                                 <button type="button" class="add-btn open-trip-modal-btn"
                                     data-item-type="flight"
@@ -833,6 +834,13 @@ if ($searchPerformed && !isset($_POST['save_trip_item'])) {
                                             <strong>Dates</strong>
                                             <span><?php echo htmlspecialchars($trip['start_date']); ?> → <?php echo htmlspecialchars($trip['end_date']); ?></span>
                                         </div>
+                                        <div class="trip-card-detail">
+    <strong>Estimated Total</strong>
+    <?php
+        $tripBudget = getTripBudgetSummary($pdo, (int)$trip['id'], (int)$_SESSION['user_id']);
+        echo "<span>" . displayAmountInNZD($pdo, $tripBudget['grand_total']) . "</span>";
+    ?>
+</div>
                                     </button>
                                 <?php endforeach; ?>
                             <?php else: ?>
