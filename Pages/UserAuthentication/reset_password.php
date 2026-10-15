@@ -52,9 +52,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         <script src="/AUT-Web-Based-Travel-Planner/assets/js/pwa.js"></script>
         <meta charset="UTF-8">
         <title>Reset Password</title>
-        <link rel="stylesheet" href="../../assets/css/loginformStyles.css">
+        <link rel="stylesheet" href="../../assets/css/forgot_password.css">
 </head>
 <body>
+    <div class="container">
     <h1>AUT Web-Based Travel Planner</h1>
     <h2>Reset Password</h2>
 
@@ -80,6 +81,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <button type="submit">Reset Password</button>
             <button type="backButton" onclick="location.href='../UserAuthentication/loginForm.html'">Back to Login</button>
     </form>
+    
 
     <script>
             const passwordInput = document.querySelector('input[name="new_password"]');
@@ -117,6 +119,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 }
             });
         </script>
-
+</div>
     </body>
     </html>

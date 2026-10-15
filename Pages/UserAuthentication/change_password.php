@@ -43,19 +43,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             exit();
         }
     }
-} 
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <script src="/AUT-Web-Based-Travel-Planner/assets/js/pwa.js"></script>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Change Password</title>
-        <link rel="stylesheet" href="../../assets/css/loginformStyles.css">
-    </head>
-    <body>
+
+<head>
+    <script src="/AUT-Web-Based-Travel-Planner/assets/js/pwa.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change Password</title>
+    <link rel="stylesheet" href="../../assets/css/forgot_password.css">
+</head>
+
+<body>
+
+    <div class="container">
         <h1>AUT Web-Based Travel Planner</h1>
         <h2>Change Password</h2>
 
@@ -80,7 +84,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <input type="password" name="confirm_password" required><br><br>
 
             <button type="submit">Submit New Password</button>
-            <button type="backButton" onclick="location.href='../userDashboard/userProfile.php'">Back to Profile</button>
+            <button type="backButton" onclick="location.href='../userDashboard/userProfile.php'">Back to
+                Profile</button>
         </form>
 
         <script>
@@ -119,5 +124,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 }
             });
         </script>
-    </body>
+    </div>
+</body>
+
 </html>

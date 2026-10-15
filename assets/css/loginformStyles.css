@@ -1,4 +1,4 @@
-/* basic styles for the login form */
+/* basic styles for the login form*/
 
 body {
     font-family: Arial, Helvetica, sans-serif;
@@ -811,6 +811,23 @@ body {
     background: #f8d7da;
 
     border: 1px solid #f1aeb5;
+}
+
+/*Profile buttons*/
+button {
+    gap: 20px;
+    padding: 10px 15px;
+    font-size: 13px;
+    background-color: #597b9e;
+    color: white;
+    border-radius: 10px;
+}
+
+.profile-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: center;
 }
 
 /* password requirements */
