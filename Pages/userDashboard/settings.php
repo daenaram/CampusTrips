@@ -21,7 +21,8 @@ if (!isset($_SESSION['user_id'])) {
     <title>Settings - CampusTrips</title>
 
     <!-- Hamburger menu CSS -->
-    <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css">
+    <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css?v=2">
+    <script src="/AUT-Web-Based-Travel-Planner/assets/js/notificationBell.js" defer></script>
 
     <!-- Settings button CSS -->
     <link rel="stylesheet" href="../../assets/css/settingsbutton.css">

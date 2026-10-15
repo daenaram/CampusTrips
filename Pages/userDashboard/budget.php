@@ -330,7 +330,8 @@ $categoryOptions = ['Flights', 'Accommodation', 'Activities', 'Food', 'Transport
     <title>Trip Budget</title>
     <link rel="stylesheet" href="../../assets/css/settingsbutton.css">
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
-    <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css">
+    <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css?v=2">
+    <script src="/AUT-Web-Based-Travel-Planner/assets/js/notificationBell.js" defer></script>
     <link rel="stylesheet" href="../../assets/css/budget.css">
 </head>
 <body>

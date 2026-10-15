@@ -339,6 +339,19 @@ try {
         UNIQUE KEY user_reminder_unique (user_id, reminder_key)
     ) ENGINE=InnoDB");
 
+    // A copy of every reminder that was pushed, for the notification bell's
+    // "recent notifications" list. read_at stays NULL until the user opens it.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS user_notifications (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        user_id    INT          NOT NULL,
+        title      VARCHAR(255) NOT NULL,
+        body       VARCHAR(500) NOT NULL,
+        url        VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        read_at    TIMESTAMP    NULL DEFAULT NULL,
+        INDEX user_recent (user_id, created_at)
+    ) ENGINE=InnoDB");
+
     // Seed dummy data quietly after table creation
     require_once __DIR__ . '/dummyData.php';
     require_once __DIR__ . '/activitiesData.php';
