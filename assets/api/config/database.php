@@ -4,6 +4,9 @@ $dbname = "aut_travel_planner";
 $dbuser = "root";
 $dbpass = "";
 
+//default timezone
+date_default_timezone_set('Pacific/Auckland');
+
 try {
     // Connect without specifying a database first
     $pdo = new PDO("mysql:host=$host", $dbuser, $dbpass);
