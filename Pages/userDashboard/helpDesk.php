@@ -35,7 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_message'])) {
     <title>Contact Us - CampusTrips</title>
     <link rel="stylesheet" href="../../assets/css/settingsbutton.css">
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
-    <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css">
+    <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css?v=2">
+    <script src="/AUT-Web-Based-Travel-Planner/assets/js/notificationBell.js" defer></script>
     <link rel="stylesheet" href="../../assets/css/helpDesk.css">
 </head>
 <body>

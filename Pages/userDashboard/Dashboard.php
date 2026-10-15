@@ -732,7 +732,8 @@ foreach ($trips as $trip) {
     <title>User Dashboard</title>
     <link rel="stylesheet" href="../../assets/css/settingsbutton.css">
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
-    <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css">
+    <link rel="stylesheet" href="../../assets/css/hamburgerMenu.css?v=2">
+    <script src="/AUT-Web-Based-Travel-Planner/assets/js/notificationBell.js" defer></script>
     <link rel="stylesheet" href="../../assets/css/calendar.css">
     <link rel="stylesheet" href="../../assets/css/conflictAlert.css">
 

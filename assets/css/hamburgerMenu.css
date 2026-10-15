@@ -130,3 +130,123 @@
 .menu-list button:hover {
     background: rgba(245, 243, 238, 0.06);
 }
+
+/* ---------- Notification bell ----------
+   Added next to .menu-toggle by assets/js/notificationBell.js. */
+
+.notification-bell {
+    position: fixed;
+    top: 16px;
+    right: 72px; /* menu-toggle's right (20px) + width (42px) + 10px gap */
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0B2545;
+    color: #F5F3EE;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    z-index: 60;
+}
+.notification-bell:hover {
+    opacity: 0.9;
+}
+.notification-bell[hidden] {
+    display: none;
+}
+.notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 9px;
+    background: #D64545;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+}
+.notification-badge[hidden] {
+    display: none;
+}
+
+.notification-popup {
+    position: fixed;
+    top: 66px;
+    right: 20px;
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    max-height: min(420px, 70vh);
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(11, 37, 69, 0.25);
+    overflow: hidden;
+    z-index: 61;
+}
+.notification-popup[hidden] {
+    display: none;
+}
+.notification-popup-header {
+    padding: 12px 16px;
+    background: #0B2545;
+    color: #F5F3EE;
+    font-size: 14px;
+    font-weight: 600;
+}
+.notification-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+}
+.notification-list li + li {
+    border-top: 1px solid #ECE9E2;
+}
+.notification-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 12px 16px;
+    border-left: 3px solid transparent;
+    color: #0B2545;
+    text-decoration: none;
+}
+.notification-item:hover {
+    background: #F5F3EE;
+}
+.notification-item.unread {
+    border-left-color: #D64545;
+    background: #FBF8F2;
+}
+.notification-title {
+    font-size: 13px;
+    font-weight: 600;
+}
+.notification-body {
+    font-size: 12px;
+    color: #4A5568;
+}
+.notification-time {
+    font-size: 11px;
+    color: #8A94A6;
+}
+.notification-empty {
+    padding: 20px 16px;
+    font-size: 13px;
+    color: #4A5568;
+    text-align: center;
+}
+
+@media (max-width: 480px) {
+    .notification-popup {
+        right: 16px;
+    }
+}

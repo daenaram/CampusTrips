@@ -173,6 +173,7 @@ function sendDueReminders(PDO $pdo, ?DateTimeImmutable $now = null): array
 
     $claim = $pdo->prepare("INSERT IGNORE INTO push_reminder_log (user_id, reminder_key) VALUES (?, ?)");
     $release = $pdo->prepare("DELETE FROM push_reminder_log WHERE user_id = ? AND reminder_key = ?");
+    $record = $pdo->prepare("INSERT INTO user_notifications (user_id, title, body, url) VALUES (?, ?, ?, ?)");
 
     foreach (findDueReminders($pdo, $now) as $reminder) {
         // TODO (notification preferences): once users can choose which
@@ -198,6 +199,8 @@ function sendDueReminders(PDO $pdo, ?DateTimeImmutable $now = null): array
         ]);
 
         if ($delivered > 0) {
+            // Kept for the in-app notification bell.
+            $record->execute([$reminder['user_id'], $reminder['title'], $reminder['body'], $reminder['url']]);
             $counts['sent']++;
         } else {
             // Nothing got through (push service down, network blip) — let

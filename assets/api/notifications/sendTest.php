@@ -49,6 +49,10 @@ try {
         exit();
     }
 
+    // Shows up in the notification bell too, so the bell can be tried out.
+    $pdo->prepare("INSERT INTO user_notifications (user_id, title, body, url) VALUES (?, ?, ?, ?)")
+        ->execute([$_SESSION['user_id'], $message['title'], $message['body'], $message['url']]);
+
     echo json_encode(['success' => true, 'delivered' => $delivered]);
 } catch (Throwable $e) {
     error_log('Push test error: ' . $e->getMessage());
