@@ -1,5 +1,6 @@
 <?php
 
+date_default_timezone_set('Pacific/Auckland');
 
 /**Checking if the account is locked out before allowing login attempts**/
 function isAccountLocked(PDO $pdo, string $email): bool
@@ -17,7 +18,10 @@ function isAccountLocked(PDO $pdo, string $email): bool
         return false;
     }
 
-    if (time() >= strtotime($user['locked_out'])) {
+    $lockTime = strtotime($user['locked_out']);
+    $currentTime = time();
+
+    if ($currentTime >= $lockTime) {
         $clear = $pdo->prepare("
             UPDATE users
             SET locked_out = NULL,
@@ -43,7 +47,7 @@ function isAccountLocked(PDO $pdo, string $email): bool
 
 function recordFailedLogin(PDO $pdo, string $email): void
 {
-      
+
 
     //get current failed attempts
     $stmt = $pdo->prepare("
@@ -62,13 +66,13 @@ function recordFailedLogin(PDO $pdo, string $email): void
     }
 
     //Increasing the failed attempts count
-    $attempts = (int)$user['failed_attempts'] + 1;
+    $attempts = (int) $user['failed_attempts'] + 1;
 
     //lock account after 3 attempts
     if ($attempts >= 3) {
 
-    
-        $lockUntil = date("Y-m-d H:i:s", strtotime("+15 minutes"));
+        $lockUntil = date("Y-m-d H:i:s");
+        $lockUntil = date("Y-m-d H:i:s", strtotime($lockUntil . " +15 minutes"));
 
         //update database to lock the account
         $stmt = $pdo->prepare("
@@ -77,17 +81,17 @@ function recordFailedLogin(PDO $pdo, string $email): void
                 locked_out = ?
             WHERE email = ?
         ");
-        $stmt->execute([$lockUntil, $email]);
-        //send lockout email to user
+
+        $result = $stmt->execute([$lockUntil, $email]);
+
+        // DEBUG: Check if the query actually worked
+        if (!$result) {
+            error_log("Failed to update lockout for: " . $email);
+        }
+
         sendLockOutEmail($email, $user['name'] ?? 'user', $lockUntil);
     } else {
-
-        //update failed attempts in database
-        $stmt = $pdo->prepare("
-            UPDATE users
-            SET failed_attempts = ?
-            WHERE email = ?
-        ");
+        $stmt = $pdo->prepare("UPDATE users SET failed_attempts = ? WHERE email = ?");
         $stmt->execute([$attempts, $email]);
     }
 }
@@ -105,7 +109,8 @@ function resetFailedLogin(PDO $pdo, string $email): void
 }
 
 //sending email to user when their account is locked out
-function sendLockOutEmail(string $email, string $name, string $lockUntil): void {
+function sendLockOutEmail(string $email, string $name, string $lockUntil): void
+{
     $displayName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
     $lockTime = date("g:i A, j F Y", strtotime($lockUntil));
     $subject = "Security Alert: CampusTrip Account Locked Due to Multiple Failed Login Attempts";
@@ -149,7 +154,7 @@ function sendLockOutEmail(string $email, string $name, string $lockUntil): void 
     $headers = "MIME-Version: 1.0\r\n";
     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
     $headers .= "From: CampusTrip <noreply@campustrip.com>\r\n";
-    $headers .="X-Mailer: PHP/" . phpversion();
+    $headers .= "X-Mailer: PHP/" . phpversion();
     @mail($email, $subject, $message, $headers);
     error_log("Lockout email sent to {$email} for user {$displayName} until {$lockTime}");
 }

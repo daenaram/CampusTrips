@@ -1,5 +1,5 @@
 <?php
-$host   = "localhost";
+$host = "localhost";
 $dbname = "aut_travel_planner";
 $dbuser = "root";
 $dbpass = "";
@@ -28,7 +28,8 @@ try {
         failed_attempts     INT          DEFAULT 0,
         locked_out   DATETIME     DEFAULT NULL,
         created_at         TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-        profile_picture VARCHAR(255) NULL DEFAULT NULL
+        profile_picture VARCHAR(255) NULL DEFAULT NULL,
+        currency_preference VARCHAR(3) DEFAULT 'NZD'
     )");
 
     $profilePictureColumn = $pdo->query("
@@ -40,6 +41,17 @@ try {
             ALTER TABLE users
             ADD COLUMN profile_picture VARCHAR(255) NULL DEFAULT NULL
         ");
+    }
+
+    $currencyPrefColumn = $pdo->query("
+    SHOW COLUMNS FROM users LIKE 'currency_preference'
+")->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($currencyPrefColumn)) {
+        $pdo->exec("
+        ALTER TABLE users
+        ADD COLUMN currency_preference VARCHAR(3) DEFAULT 'NZD'
+    ");
     }
 
     // When the user answered the dashboard's "turn on notifications?" prompt
@@ -330,6 +342,6 @@ try {
 
 } catch (PDOException $e) {
     error_log("Database setup error: " . $e->getMessage());
-    die(json_encode(["error" => "Database connection failed. Please try again later." ]));
+    die(json_encode(["error" => "Database connection failed. Please try again later."]));
 }
 ?>
