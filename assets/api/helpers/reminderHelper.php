@@ -8,11 +8,11 @@
  * Reminders (each sent once, tracked in push_reminder_log):
  *  - a trip starting tomorrow (or today, if tomorrow's was missed)
  *  - a saved activity tomorrow (or today)
+ *  - a saved flight departing within 7 days, and again within 24 hours
+ *  - a saved accommodation check-in within 7 days, and again within 24 hours
  *
  * Still to be added — see the TODOs in findDueReminders() and
  * sendDueReminders():
- *  - flight reminders
- *  - accommodation / hotel reminders
  *  - custom reminders created by the user
  *  - notification preferences (which reminders a user wants to receive)
  */
@@ -35,6 +35,13 @@ function tripDetailsUrl(int $tripId): string
 function reminderDayLabel(string $date, string $today): string
 {
     return $date === $today ? 'today' : 'tomorrow';
+}
+
+/** "7 days", "2 days", "1 day" — counted in calendar days, as a traveller would. */
+function daysAwayLabel(DateTimeImmutable $now, DateTimeImmutable $departs): string
+{
+    $days = (int) $now->setTime(0, 0)->diff($departs->setTime(0, 0))->days;
+    return $days === 1 ? '1 day' : "$days days";
 }
 
 /** @return array[] Each: ['user_id', 'key', 'title', 'body', 'url'] */
@@ -63,16 +70,72 @@ function findDueReminders(PDO $pdo, DateTimeImmutable $now): array
         ];
     }
 
-    // TODO (flight reminders): query saved_flights here — e.g. flights whose
-    // departure_datetime falls within the next 24 hours — and add one entry
-    // per flight to $reminders, in the same shape as the trip reminder above.
-    // Give each a unique 'key' (e.g. "flight:<id>:<departure>") so it is only
-    // ever sent once, and link it with tripDetailsUrl($flight['trip_id']).
+    // Flights get two reminders: a heads-up once departure is within 7 days,
+    // and a final one once it is within 24 hours. A flight saved less than a
+    // day out only gets the final one. Only future departures are selected,
+    // so nothing is ever sent for a flight that has already left.
+    // departure_datetime is a plain local time, like trip dates.
+    $nowStamp = $now->format('Y-m-d H:i:s');
+    $in24Hours = $now->modify('+24 hours')->format('Y-m-d H:i:s');
+    $in7Days = $now->modify('+7 days')->format('Y-m-d H:i:s');
 
-    // TODO (accommodation / hotel reminders): query saved_accommodations here
-    // — e.g. a planned_check_in (or planned_check_out) of today or tomorrow —
-    // and add entries to $reminders the same way, with a unique 'key' such as
-    // "checkin:<id>:<date>".
+    $stmt = $pdo->prepare("
+        SELECT f.id, f.user_id, f.trip_id, f.flight_number, f.departure_city,
+               f.arrival_city, f.departure_datetime, t.title AS trip_title
+        FROM saved_flights f
+        JOIN trips t ON t.id = f.trip_id
+        WHERE f.departure_datetime > ? AND f.departure_datetime <= ? AND " . sprintf($hasSubscription, 'f')
+    );
+    $stmt->execute([$nowStamp, $in7Days]);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $flight) {
+        $isFinal = $flight['departure_datetime'] <= $in24Hours;
+        $departs = new DateTimeImmutable($flight['departure_datetime'], $now->getTimezone());
+
+        $reminders[] = [
+            'user_id' => (int) $flight['user_id'],
+            // The departure time is part of the key so a flight that is
+            // rescheduled gets reminded about again.
+            'key'     => 'flight-' . ($isFinal ? '24h' : '7d') . ":{$flight['id']}:{$flight['departure_datetime']}",
+            'title'   => $isFinal
+                ? "Final reminder: flight {$flight['flight_number']} departs within 24 hours"
+                : "Upcoming flight {$flight['flight_number']} in " . daysAwayLabel($now, $departs),
+            'body'    => "{$flight['departure_city']} → {$flight['arrival_city']}, departs "
+                . $departs->format('D j M, g:i a') . " · Trip: {$flight['trip_title']}",
+            'url'     => tripDetailsUrl((int) $flight['trip_id']),
+        ];
+    }
+
+    // Accommodation check-ins are reminded about the same way as flights:
+    // once within 7 days, and a final time within 24 hours, never after the
+    // check-in has passed. The check-in moment is the planned date at the
+    // stay's check-in time (14:00 if none was set).
+    $stmt = $pdo->prepare("
+        SELECT a.id, a.user_id, a.trip_id, a.name, a.city, a.address, a.check_in_at,
+               t.title AS trip_title
+        FROM (
+            SELECT s.*, CAST(TIMESTAMP(s.planned_check_in, COALESCE(s.check_in_time, '14:00:00')) AS DATETIME) AS check_in_at
+            FROM saved_accommodations s
+            WHERE s.planned_check_in IS NOT NULL AND " . sprintf($hasSubscription, 's') . "
+        ) a
+        JOIN trips t ON t.id = a.trip_id
+        WHERE a.check_in_at > ? AND a.check_in_at <= ?
+    ");
+    $stmt->execute([$nowStamp, $in7Days]);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $stay) {
+        $isFinal = $stay['check_in_at'] <= $in24Hours;
+        $checkIn = new DateTimeImmutable($stay['check_in_at'], $now->getTimezone());
+
+        $reminders[] = [
+            'user_id' => (int) $stay['user_id'],
+            'key'     => 'checkin-' . ($isFinal ? '24h' : '7d') . ":{$stay['id']}:{$stay['check_in_at']}",
+            'title'   => $isFinal
+                ? "Final reminder: check in at {$stay['name']} within 24 hours"
+                : "Upcoming check-in at {$stay['name']} in " . daysAwayLabel($now, $checkIn),
+            'body'    => "{$stay['address']}, {$stay['city']} · Check-in "
+                . $checkIn->format('D j M, g:i a') . " · Trip: {$stay['trip_title']}",
+            'url'     => tripDetailsUrl((int) $stay['trip_id']),
+        ];
+    }
 
     // TODO (custom reminders): once users can create their own reminders,
     // select the ones that are now due from that table here and add them to
