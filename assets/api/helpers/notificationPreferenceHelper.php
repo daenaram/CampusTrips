@@ -16,16 +16,6 @@ const REMINDER_TYPES = [
         'description' => 'Accommodation check-in reminders.',
         'prefixes' => ['checkin']
     ],
-    'visa' => [
-        'label' => 'Visa deadlines',
-        'description' => 'Reminders about upcoming visa deadlines.',
-        'prefixes' => ['visa']
-    ],
-    'custom' => [
-        'label' => 'Custom reminders',
-        'description' => 'Reminders you create yourself.',
-        'prefixes' => ['custom']
-    ],
     'trips' => [
         'label' => 'Trip start reminders',
         'description' => 'A reminder when a trip is about to begin.',

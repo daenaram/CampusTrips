@@ -13,10 +13,21 @@ if (!isset($_SESSION['user_id'])) {
 
 //load the current preference
 $notificationPrefs = getNotificationPreferences($pdo, (int) $_SESSION['user_id']);
+// Trips the user can attach a reminder to.
+$stmt = $pdo->prepare("SELECT id, title FROM trips WHERE user_id = ? ORDER BY start_date DESC");
+$stmt->execute([(int) $_SESSION['user_id']]);
+$userTrips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Reminders the user has already created.
+$stmt = $pdo->prepare("SELECT id, reminder_type, title, remind_on FROM user_reminders WHERE user_id = ? ORDER BY remind_on ASC");
+$stmt->execute([(int) $_SESSION['user_id']]);
+$userReminders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <script src="/AUT-Web-Based-Travel-Planner/assets/js/pwa.js"></script>
     <script src="/AUT-Web-Based-Travel-Planner/assets/js/pushNotifications.js?v=2"></script>
@@ -197,6 +208,48 @@ $notificationPrefs = getNotificationPreferences($pdo, (int) $_SESSION['user_id']
             margin-top: 10px;
         }
 
+        .reminder-form {
+            display: grid;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .reminder-form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .reminder-form-row label {
+            font-size: 13px;
+            color: #555;
+        }
+
+        .reminder-list {
+            list-style: none;
+            margin: 15px 0 0;
+            padding: 0;
+        }
+
+        .reminder-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 0;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        .reminder-item:last-child {
+            border-bottom: none;
+        }
+
+        .reminder-item em {
+            color: #0072ac;
+            font-style: normal;
+            font-size: 13px;
+        }
+
         @media (max-width: 600px) {
             .settings-page {
                 padding: 90px 15px 30px;
@@ -216,7 +269,8 @@ $notificationPrefs = getNotificationPreferences($pdo, (int) $_SESSION['user_id']
 
 <body>
     <!-- Back to dashboard (top left) -->
-    <button type="button" class="back-to-dashboard" onclick="location.href='Dashboard.php'" aria-label="Back to dashboard">← Back to Dashboard</button>
+    <button type="button" class="back-to-dashboard" onclick="location.href='Dashboard.php'"
+        aria-label="Back to dashboard">← Back to Dashboard</button>
 
     <!-- Hamburger menu icon (top right) -->
     <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false" aria-controls="menuPanel">
@@ -258,7 +312,8 @@ $notificationPrefs = getNotificationPreferences($pdo, (int) $_SESSION['user_id']
                 </button>
             </li>
             <li>
-                <button type="button" onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">
+                <button type="button"
+                    onclick="location.href='/AUT-Web-Based-Travel-Planner/assets/api/auth/signout.php'">
                     Sign Out
                 </button>
             </li>
@@ -294,12 +349,12 @@ $notificationPrefs = getNotificationPreferences($pdo, (int) $_SESSION['user_id']
             </div>
 
             <div class="settings-option">
-    <div class="settings-option-text">
-        <strong>Currency</strong>
-        <span>Choose the currency used when displaying travel costs.</span>
-    </div>
-    <select class="settings-select" id="currencySetting">
-        <?php
+                <div class="settings-option-text">
+                    <strong>Currency</strong>
+                    <span>Choose the currency used when displaying travel costs.</span>
+                </div>
+                <select class="settings-select" id="currencySetting">
+                    <?php
                     // Get the list from the helper
                     $currencies = getSupportedCurrencies();
                     // Get user's current choice from session (default to NZD)
@@ -347,7 +402,6 @@ $notificationPrefs = getNotificationPreferences($pdo, (int) $_SESSION['user_id']
         </section>
 
         <!-- Notifications -->
-               <!-- Notifications -->
         <section class="settings-card">
             <h2>Notifications</h2>
             <p>Choose which reminders you want to receive. Changes take effect the next time a reminder is due.</p>
@@ -355,10 +409,13 @@ $notificationPrefs = getNotificationPreferences($pdo, (int) $_SESSION['user_id']
             <div class="settings-option">
                 <div class="settings-option-text">
                     <strong>Push notifications on this device</strong>
-                    <span>Allow CampusTrips to send push notifications to this browser — even when the app isn't open.</span>
-                    <div class="push-status" id="pushStatus" role="status" aria-live="polite">Checking notification status…</div>
+                    <span>Allow CampusTrips to send push notifications to this browser — even when the app isn't
+                        open.</span>
+                    <div class="push-status" id="pushStatus" role="status" aria-live="polite">Checking notification
+                        status…</div>
                     <p class="push-feedback" id="pushFeedback" role="status" aria-live="polite" hidden></p>
-                    <button type="button" class="settings-button secondary push-test" id="pushTest" hidden>Send test notification</button>
+                    <button type="button" class="settings-button secondary push-test" id="pushTest" hidden>Send test
+                        notification</button>
                 </div>
                 <input type="checkbox" id="tripReminders" aria-describedby="pushStatus">
             </div>
@@ -373,7 +430,8 @@ $notificationPrefs = getNotificationPreferences($pdo, (int) $_SESSION['user_id']
 
             <h3 class="settings-subheading">Reminder types</h3>
             <p class="settings-subheading-hint">
-                Turn off any reminder you don't want. Turning everything off keeps the rest of the app working exactly as normal.
+                Turn off any reminder you don't want. Turning everything off keeps the rest of the app working exactly
+                as normal.
             </p>
 
             <div class="settings-option">
@@ -385,18 +443,79 @@ $notificationPrefs = getNotificationPreferences($pdo, (int) $_SESSION['user_id']
             </div>
 
             <?php foreach (REMINDER_TYPES as $type => $def): ?>
-            <div class="settings-option">
-                <div class="settings-option-text">
-                    <strong><?php echo htmlspecialchars($def['label']); ?></strong>
-                    <span><?php echo htmlspecialchars($def['description']); ?></span>
+                <div class="settings-option">
+                    <div class="settings-option-text">
+                        <strong><?php echo htmlspecialchars($def['label']); ?></strong>
+                        <span><?php echo htmlspecialchars($def['description']); ?></span>
+                    </div>
+                    <input type="checkbox" class="notify-type" id="notify_<?php echo htmlspecialchars($type); ?>"
+                        data-type="<?php echo htmlspecialchars($type); ?>" <?php echo !empty($notificationPrefs[$type]) ? 'checked' : ''; ?>>
                 </div>
-                <input type="checkbox"
-                       class="notify-type"
-                       id="notify_<?php echo htmlspecialchars($type); ?>"
-                       data-type="<?php echo htmlspecialchars($type); ?>"
-                       <?php echo !empty($notificationPrefs[$type]) ? 'checked' : ''; ?>>
-            </div>
+
             <?php endforeach; ?>
+
+            <h3 class="settings-subheading">Create a reminder</h3>
+            <p class="settings-subheading-hint">
+                Add your own visa deadline or custom reminder. You'll be reminded the day before and on the day.
+            </p>
+
+            <div class="reminder-form" id="reminderForm">
+                <div class="reminder-form-row">
+                    <label for="reminderType">Type</label>
+                    <select id="reminderType" class="settings-select">
+                        <option value="visa">Visa deadline</option>
+                        <option value="custom">Custom reminder</option>
+                    </select>
+                </div>
+
+                <div class="reminder-form-row">
+                    <label for="reminderTitle">Title</label>
+                    <input type="text" id="reminderTitle" class="settings-select" maxlength="150"
+                        placeholder="e.g. Japan visa application">
+                </div>
+
+                <div class="reminder-form-row">
+                    <label for="reminderDate">Remind me on</label>
+                    <input type="date" id="reminderDate" class="settings-select" value="<?php echo date('Y-m-d'); ?>">
+                </div>
+
+                <div class="reminder-form-row">
+                    <label for="reminderTrip">Trip (optional)</label>
+                    <select id="reminderTrip" class="settings-select">
+                        <option value="">No trip</option>
+                        <?php foreach ($userTrips as $trip): ?>
+                            <option value="<?php echo (int) $trip['id']; ?>">
+                                <?php echo htmlspecialchars($trip['title']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="reminder-form-row">
+                    <label for="reminderBody">Notes (optional)</label>
+                    <input type="text" id="reminderBody" class="settings-select" maxlength="500">
+                </div>
+
+                <button type="button" class="settings-button primary" id="addReminder">Add reminder</button>
+                <p class="push-feedback" id="reminderFeedback" role="status" aria-live="polite" hidden></p>
+            </div>
+
+            <!-- The reminders this user has already created. -->
+            <?php if (!empty($userReminders)): ?>
+                <ul class="reminder-list">
+                    <?php foreach ($userReminders as $r): ?>
+                        <li class="reminder-item">
+                            <span>
+                                <strong><?php echo htmlspecialchars($r['title']); ?></strong>
+                                <em><?php echo $r['reminder_type'] === 'visa' ? 'Visa deadline' : 'Custom'; ?></em>
+                                · <?php echo htmlspecialchars($r['remind_on']); ?>
+                            </span>
+                            <button type="button" class="settings-button secondary reminder-delete"
+                                data-id="<?php echo (int) $r['id']; ?>">Delete</button>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
         </section>
 
 
@@ -444,7 +563,7 @@ $notificationPrefs = getNotificationPreferences($pdo, (int) $_SESSION['user_id']
             }
         });
 
-               // ---------- Settings buttons ----------
+        // ---------- Settings buttons ----------
         const saveSettings = document.getElementById('saveSettings');
         const resetSettings = document.getElementById('resetSettings');
 
@@ -620,29 +739,86 @@ $notificationPrefs = getNotificationPreferences($pdo, (int) $_SESSION['user_id']
                     pushTest.disabled = false;
                 });
         });
-        document.getElementById('saveSettings').addEventListener('click', function() {
-    const selectedCurrency = document.getElementById('currencySetting').value;
+        document.getElementById('saveSettings').addEventListener('click', function () {
+            const selectedCurrency = document.getElementById('currencySetting').value;
 
-    // Create a request to save the currency to the session
-    const formData = new FormData();
-    formData.append('currency', selectedCurrency);
+            // Create a request to save the currency to the session
+            const formData = new FormData();
+            formData.append('currency', selectedCurrency);
 
-    fetch('save_settings.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if(data.status === 'success') {
-            alert('Settings saved! Currency set to ' + selectedCurrency);
-            window.location.reload(); // Reload to apply changes globally
+            fetch('save_settings.php', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert('Settings saved! Currency set to ' + selectedCurrency);
+                        window.location.reload(); // Reload to apply changes globally
+                    }
+                })
+                .catch(err => alert('Error saving settings.'));
+        });
+        // ---------- Create a reminder ----------
+        const addReminder = document.getElementById('addReminder');
+        const reminderFeedback = document.getElementById('reminderFeedback');
+
+        function showReminderFeedback(message, isError) {
+            reminderFeedback.textContent = message;
+            reminderFeedback.classList.toggle('error', Boolean(isError));
+            reminderFeedback.hidden = !message;
         }
-    })
-    .catch(err => alert('Error saving settings.'));
-});
+
+        if (addReminder) {
+            addReminder.addEventListener('click', function () {
+                const formData = new FormData();
+                formData.append('action', 'create');
+                formData.append('reminder_type', document.getElementById('reminderType').value);
+                formData.append('title', document.getElementById('reminderTitle').value);
+                formData.append('remind_on', document.getElementById('reminderDate').value);
+                formData.append('trip_id', document.getElementById('reminderTrip').value);
+                formData.append('body', document.getElementById('reminderBody').value);
+
+                addReminder.disabled = true;
+                fetch('save_reminder.php', { method: 'POST', body: formData })
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) {
+                        if (data.status === 'success') {
+                            window.location.reload(); // Show the new reminder.
+                        } else {
+                            showReminderFeedback(data.message || 'Could not add reminder.', true);
+                        }
+                    })
+                    .catch(function () { showReminderFeedback('Error adding reminder.', true); })
+                    .finally(function () { addReminder.disabled = false; });
+            });
+        }
+
+        // ---------- Delete a reminder ----------
+        document.querySelectorAll('.reminder-delete').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (!confirm('Delete this reminder?')) return;
+
+                const formData = new FormData();
+                formData.append('action', 'delete');
+                formData.append('id', btn.dataset.id);
+
+                fetch('save_reminder.php', { method: 'POST', body: formData })
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) {
+                        if (data.status === 'success') {
+                            window.location.reload();
+                        } else {
+                            alert(data.message || 'Could not delete reminder.');
+                        }
+                    })
+                    .catch(function () { alert('Error deleting reminder.'); });
+            });
+        });
 
 
-        
+
     </script>
 </body>
+
 </html>

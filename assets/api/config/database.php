@@ -292,19 +292,19 @@ try {
     )");
 
     //Budget Item:user-added custom budget per trip
-    $pdo->exec("CREATE TABLE IF NOT EXISTS budget_items (
-        id           INT AUTO_INCREMENT PRIMARY KEY,
-        user_id      INT           NOT NULL,
-        trip_id      INT           NOT NULL,
-        category     VARCHAR(100)  NOT NULL,
-        item_name    VARCHAR(255)  NOT NULL,
-        amount       DECIMAL(12,2) NOT NULL,
-        currency     VARCHAR(10)   NOT NULL DEFAULT 'NZD',
-        amount_nzd   DECIMAL(12,2) NOT NULL,
-        created_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
-    )");
+    // $pdo->exec("CREATE TABLE IF NOT EXISTS budget_items (
+    //     id           INT AUTO_INCREMENT PRIMARY KEY,
+    //     user_id      INT           NOT NULL,
+    //     trip_id      INT           NOT NULL,
+    //     category     VARCHAR(100)  NOT NULL,
+    //     item_name    VARCHAR(255)  NOT NULL,
+    //     amount       DECIMAL(12,2) NOT NULL,
+    //     currency     VARCHAR(10)   NOT NULL DEFAULT 'NZD',
+    //     amount_nzd   DECIMAL(12,2) NOT NULL,
+    //     created_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    //     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    //     FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
+    // )");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS fx_rate_cache (
         currency     VARCHAR(10)   NOT NULL PRIMARY KEY,
@@ -370,29 +370,22 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS notification_preferences (
     PRIMARY KEY (user_id, reminder_type)
     ) ENGINE=InnoDB");
 
-// User-created reminders ("remind me about X on this date").
-$pdo->exec("CREATE TABLE IF NOT EXISTS custom_reminders (
-    id         INT AUTO_INCREMENT PRIMARY KEY,
-    user_id    INT           NOT NULL,
-    trip_id    INT           NULL,
-    title      VARCHAR(150)  NOT NULL,
-    body       VARCHAR(500)  NULL,
-    remind_on  DATE          NOT NULL,
-    created_at TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
-    INDEX (user_id),
-    INDEX (remind_on)
-) ENGINE=InnoDB");
-
-// Visa deadlines tied to a trip (or standalone, when trip_id is NULL).
-$pdo->exec("CREATE TABLE IF NOT EXISTS visa_deadlines (
+// Reminders the user creates themselves. Visa deadlines and custom
+// reminders both live here; reminder_type tells them apart.
+$pdo->exec("CREATE TABLE IF NOT EXISTS user_reminders (
     id            INT AUTO_INCREMENT PRIMARY KEY,
     user_id       INT           NOT NULL,
     trip_id       INT           NULL,
-    country       VARCHAR(100)  NOT NULL,
-    deadline_date DATE          NOT NULL,
-    notes         VARCHAR(500)  NULL,
+    reminder_type ENUM('visa','custom') NOT NULL DEFAULT 'custom',
+    title         VARCHAR(150)  NOT NULL,
+    body          VARCHAR(500)  NULL,
+    remind_on     DATE          NOT NULL,
     created_at    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
     INDEX (user_id),
-    INDEX (deadline_date)
+    INDEX (remind_on)
 ) ENGINE=InnoDB");
+// Clean up the old, unused duplicates if a previous run created them.
+$pdo->exec("DROP TABLE IF EXISTS custom_reminders");
+$pdo->exec("DROP TABLE IF EXISTS visa_deadlines");
+
 ?>
