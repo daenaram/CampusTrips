@@ -2,14 +2,18 @@
 // Start session to access user data
 session_start();
 require_once __DIR__ . '/../../assets/api/config/database.php';
-require_once __DIR__ . '../../../assets/api/helpers/currencyHelper.php';
-
+require_once __DIR__ . '/../../assets/api/helpers/currencyHelper.php';
+require_once __DIR__ . '/../../assets/api/helpers/notificationPreferenceHelper.php';
 
 // Redirect to login if user is not authenticated
 if (!isset($_SESSION['user_id'])) {
     header("Location: /AUT-Web-Based-Travel-Planner/Pages/UserAuthentication/loginForm.html");
     exit();
 }
+
+//load the current preference
+$notificationPrefs = getNotificationPreferences($pdo, (int) $_SESSION['user_id']);
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -343,14 +347,15 @@ if (!isset($_SESSION['user_id'])) {
         </section>
 
         <!-- Notifications -->
+               <!-- Notifications -->
         <section class="settings-card">
             <h2>Notifications</h2>
-            <p>Manage your travel planner notifications.</p>
+            <p>Choose which reminders you want to receive. Changes take effect the next time a reminder is due.</p>
 
             <div class="settings-option">
                 <div class="settings-option-text">
-                    <strong>Trip Reminders</strong>
-                    <span>Get push notifications on this device about upcoming trips and activities — even when CampusTrips isn't open.</span>
+                    <strong>Push notifications on this device</strong>
+                    <span>Allow CampusTrips to send push notifications to this browser — even when the app isn't open.</span>
                     <div class="push-status" id="pushStatus" role="status" aria-live="polite">Checking notification status…</div>
                     <p class="push-feedback" id="pushFeedback" role="status" aria-live="polite" hidden></p>
                     <button type="button" class="settings-button secondary push-test" id="pushTest" hidden>Send test notification</button>
@@ -366,12 +371,34 @@ if (!isset($_SESSION['user_id'])) {
                 <input type="checkbox" id="travelUpdates" checked>
             </div>
 
-            <!-- TODO (notification preferences): add the options for which
-                 reminders a user wants (e.g. trips, activities, flights,
-                 accommodation, custom reminders) here. The server-side check
-                 that skips unwanted reminders goes in sendDueReminders() in
-                 assets/api/helpers/reminderHelper.php. -->
+            <h3 class="settings-subheading">Reminder types</h3>
+            <p class="settings-subheading-hint">
+                Turn off any reminder you don't want. Turning everything off keeps the rest of the app working exactly as normal.
+            </p>
+
+            <div class="settings-option">
+                <div class="settings-option-text">
+                    <strong>All notifications</strong>
+                    <span>Master switch — turns every reminder type below on or off at once.</span>
+                </div>
+                <input type="checkbox" id="notifyAll" <?php echo $notificationPrefs['all'] ? 'checked' : ''; ?>>
+            </div>
+
+            <?php foreach (REMINDER_TYPES as $type => $def): ?>
+            <div class="settings-option">
+                <div class="settings-option-text">
+                    <strong><?php echo htmlspecialchars($def['label']); ?></strong>
+                    <span><?php echo htmlspecialchars($def['description']); ?></span>
+                </div>
+                <input type="checkbox"
+                       class="notify-type"
+                       id="notify_<?php echo htmlspecialchars($type); ?>"
+                       data-type="<?php echo htmlspecialchars($type); ?>"
+                       <?php echo !empty($notificationPrefs[$type]) ? 'checked' : ''; ?>>
+            </div>
+            <?php endforeach; ?>
         </section>
+
 
         <!-- Save Settings -->
         <section class="settings-card">
@@ -417,13 +444,60 @@ if (!isset($_SESSION['user_id'])) {
             }
         });
 
-        // ---------- Settings buttons ----------
+               // ---------- Settings buttons ----------
         const saveSettings = document.getElementById('saveSettings');
         const resetSettings = document.getElementById('resetSettings');
 
+        // ---------- Notification type toggles ----------
+        const notifyAll = document.getElementById('notifyAll');
+        const notifyTypes = Array.from(document.querySelectorAll('.notify-type'));
+
+        // The master switch is on only while at least one type is on.
+        function syncMasterToggle() {
+            if (!notifyAll) return;
+            notifyAll.checked = notifyTypes.some(function (cb) { return cb.checked; });
+        }
+
+        if (notifyAll) {
+            // Turning the master switch changes every type below it.
+            notifyAll.addEventListener('change', function () {
+                notifyTypes.forEach(function (cb) { cb.checked = notifyAll.checked; });
+            });
+
+            // Changing a type updates the master switch.
+            notifyTypes.forEach(function (cb) {
+                cb.addEventListener('change', syncMasterToggle);
+            });
+
+            syncMasterToggle();
+        }
+
+        // Collects the current checkbox states into one object.
+        function collectNotificationPrefs() {
+            const prefs = { all: notifyAll ? notifyAll.checked : true };
+            notifyTypes.forEach(function (cb) { prefs[cb.dataset.type] = cb.checked; });
+            return prefs;
+        }
+
         if (saveSettings) {
             saveSettings.addEventListener('click', function () {
-                alert('Settings saved.');
+                const formData = new FormData();
+                formData.append('currency', document.getElementById('currencySetting').value);
+                formData.append('notifications', JSON.stringify(collectNotificationPrefs()));
+
+                saveSettings.disabled = true;
+                fetch('save_settings.php', { method: 'POST', body: formData })
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) {
+                        if (data.status === 'success') {
+                            alert('Settings saved.');
+                            window.location.reload();
+                        } else {
+                            alert(data.message || 'Could not save settings.');
+                        }
+                    })
+                    .catch(function () { alert('Error saving settings.'); })
+                    .finally(function () { saveSettings.disabled = false; });
             });
         }
 
@@ -434,6 +508,12 @@ if (!isset($_SESSION['user_id'])) {
                 document.getElementById('travelTypeSetting').value = '';
                 document.getElementById('accommodationSetting').value = '';
                 document.getElementById('travelUpdates').checked = true;
+
+                // Turn every reminder back on.
+                if (notifyAll) {
+                    notifyAll.checked = true;
+                    notifyTypes.forEach(function (cb) { cb.checked = true; });
+                }
             });
         }
 

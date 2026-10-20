@@ -47,6 +47,7 @@ try {
     $pdo->prepare("DELETE FROM push_subscriptions WHERE user_id = ?")->execute([$user_id]);
     $pdo->prepare("DELETE FROM push_reminder_log WHERE user_id = ?")->execute([$user_id]);
     $pdo->prepare("DELETE FROM user_notifications WHERE user_id = ?")->execute([$user_id]);
+    $pdo->prepare("DELETE FROM notification_preferences WHERE user_id = ?")->execute([$user_id]);
 
     //clear all session variables and destroy the session
     session_unset();

@@ -360,4 +360,39 @@ try {
     error_log("Database setup error: " . $e->getMessage());
     die(json_encode(["error" => "Database connection failed. Please try again later."]));
 }
+
+//Per-user reminder preferences: which reminder the user would like to receive
+$pdo->exec("CREATE TABLE IF NOT EXISTS notification_preferences (
+    user_id     INT     NOT NULL,
+    reminder_type      VARCHAR(30)   NOT NULL,
+    enabled     TINYINT(1) NOT NULL DEFAULT 1,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, reminder_type)
+    ) ENGINE=InnoDB");
+
+// User-created reminders ("remind me about X on this date").
+$pdo->exec("CREATE TABLE IF NOT EXISTS custom_reminders (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    user_id    INT           NOT NULL,
+    trip_id    INT           NULL,
+    title      VARCHAR(150)  NOT NULL,
+    body       VARCHAR(500)  NULL,
+    remind_on  DATE          NOT NULL,
+    created_at TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    INDEX (user_id),
+    INDEX (remind_on)
+) ENGINE=InnoDB");
+
+// Visa deadlines tied to a trip (or standalone, when trip_id is NULL).
+$pdo->exec("CREATE TABLE IF NOT EXISTS visa_deadlines (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    user_id       INT           NOT NULL,
+    trip_id       INT           NULL,
+    country       VARCHAR(100)  NOT NULL,
+    deadline_date DATE          NOT NULL,
+    notes         VARCHAR(500)  NULL,
+    created_at    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    INDEX (user_id),
+    INDEX (deadline_date)
+) ENGINE=InnoDB");
 ?>

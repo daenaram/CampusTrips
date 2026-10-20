@@ -18,6 +18,8 @@ if (!empty($trips) && is_array($trips)) {
 }
 ?>
 
+
+
 <div class="savedTrips">
 
     <div class="savedTrips-header">
@@ -52,7 +54,7 @@ if (!empty($trips) && is_array($trips)) {
                 $totalBudget = $budgetSummary['grand_total'] ?? 0;
                 $formattedBudget = "$" . number_format($totalBudget, 2);
                 ?>
-
+                <!--Bookmark ribbon for categorising the trip-->
                 <div class="trip-card saved-trip-card completed-card" style="opacity: 0.85; background-color: #fafafa;">
                     <span class="bookmark-ribbon" style="--ribbon-color: <?php echo htmlspecialchars($category['color']); ?>;"
                         title="<?php echo htmlspecialchars($category['label']); ?>">

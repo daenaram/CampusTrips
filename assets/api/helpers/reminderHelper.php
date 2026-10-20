@@ -19,6 +19,9 @@
 
 require_once __DIR__ . '/webPushHelper.php';
 
+//enforce notification preference
+require_once __DIR__ . '/notificationPreferenceHelper.php';
+
 // Trip dates are stored as plain local dates with no timezone, so "today"
 // and "tomorrow" are judged in the app's home timezone rather than the
 // server's (WAMP's PHP defaults to UTC).
@@ -63,10 +66,10 @@ function findDueReminders(PDO $pdo, DateTimeImmutable $now): array
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $trip) {
         $reminders[] = [
             'user_id' => (int) $trip['user_id'],
-            'key'     => "trip:{$trip['id']}:{$trip['start_date']}",
-            'title'   => "Your trip starts " . reminderDayLabel($trip['start_date'], $today),
-            'body'    => "{$trip['title']} — {$trip['destination']}",
-            'url'     => tripDetailsUrl((int) $trip['id']),
+            'key' => "trip:{$trip['id']}:{$trip['start_date']}",
+            'title' => "Your trip starts " . reminderDayLabel($trip['start_date'], $today),
+            'body' => "{$trip['title']} — {$trip['destination']}",
+            'url' => tripDetailsUrl((int) $trip['id']),
         ];
     }
 
@@ -95,13 +98,13 @@ function findDueReminders(PDO $pdo, DateTimeImmutable $now): array
             'user_id' => (int) $flight['user_id'],
             // The departure time is part of the key so a flight that is
             // rescheduled gets reminded about again.
-            'key'     => 'flight-' . ($isFinal ? '24h' : '7d') . ":{$flight['id']}:{$flight['departure_datetime']}",
-            'title'   => $isFinal
+            'key' => 'flight-' . ($isFinal ? '24h' : '7d') . ":{$flight['id']}:{$flight['departure_datetime']}",
+            'title' => $isFinal
                 ? "Final reminder: flight {$flight['flight_number']} departs within 24 hours"
                 : "Upcoming flight {$flight['flight_number']} in " . daysAwayLabel($now, $departs),
-            'body'    => "{$flight['departure_city']} → {$flight['arrival_city']}, departs "
+            'body' => "{$flight['departure_city']} → {$flight['arrival_city']}, departs "
                 . $departs->format('D j M, g:i a') . " · Trip: {$flight['trip_title']}",
-            'url'     => tripDetailsUrl((int) $flight['trip_id']),
+            'url' => tripDetailsUrl((int) $flight['trip_id']),
         ];
     }
 
@@ -127,20 +130,56 @@ function findDueReminders(PDO $pdo, DateTimeImmutable $now): array
 
         $reminders[] = [
             'user_id' => (int) $stay['user_id'],
-            'key'     => 'checkin-' . ($isFinal ? '24h' : '7d') . ":{$stay['id']}:{$stay['check_in_at']}",
-            'title'   => $isFinal
+            'key' => 'checkin-' . ($isFinal ? '24h' : '7d') . ":{$stay['id']}:{$stay['check_in_at']}",
+            'title' => $isFinal
                 ? "Final reminder: check in at {$stay['name']} within 24 hours"
                 : "Upcoming check-in at {$stay['name']} in " . daysAwayLabel($now, $checkIn),
-            'body'    => "{$stay['address']}, {$stay['city']} · Check-in "
+            'body' => "{$stay['address']}, {$stay['city']} · Check-in "
                 . $checkIn->format('D j M, g:i a') . " · Trip: {$stay['trip_title']}",
-            'url'     => tripDetailsUrl((int) $stay['trip_id']),
+            'url' => tripDetailsUrl((int) $stay['trip_id']),
         ];
     }
 
-    // TODO (custom reminders): once users can create their own reminders,
-    // select the ones that are now due from that table here and add them to
-    // $reminders, with a unique 'key' (e.g. "custom:<reminder id>") and a
-    // 'url' pointing at the related trip (tripDetailsUrl()) or DASHBOARD_PATH.
+    //Visa deadline reminders
+    $in7DaysDate = $now->modify('+7 days')->format('Y-m-d');
+    $stmt = $pdo->prepare("
+        SELECT v.id, v.user_id, v.trip_id, v.country, v.deadline_date,t.title AS trip_title 
+        FROM visa_deadlines v LEFT JOIN trips t ON t.id = v.trip_id 
+        WHERE v.deadline_date >= ? AND v.deadline_date <= ? AND " . sprintf($hasSubscription, 'v')
+    );
+    $stmt->execute([$today, $in7DaysDate]);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $visa ) {
+        $isFinal = $visa['deadline_date'] <= $tomorrow;
+        $deadline = new DateTimeImmutable($visa['deadline_date'], $now->getTimezone());
+         $reminders[] = [
+            'user_id' => (int) $visa['user_id'],
+            'key'     => 'visa-' . ($isFinal ? '24h' : '7d') . ":{$visa['id']}:{$visa['deadline_date']}",
+            'title'   => $isFinal
+                ? "Final reminder: visa deadline for {$visa['country']} is " . reminderDayLabel($visa['deadline_date'], $today)
+                : "Visa deadline for {$visa['country']} in " . daysAwayLabel($now, $deadline),
+            'body'    => "Deadline " . $deadline->format('D j M')
+                . ($visa['trip_title'] ? " · Trip: {$visa['trip_title']}" : ''),
+            'url'     => $visa['trip_id'] ? tripDetailsUrl((int) $visa['trip_id']) : DASHBOARD_PATH,
+        ];
+    }
+
+    //custom reminders the user creates
+    $stmt = $pdo->prepare("
+        SELECT c.id, c.user_id, c.trip_id, c.title, c.body, c.remind_on
+        FROM custom_reminders c
+        WHERE c.remind_on IN (?, ?) AND " . sprintf($hasSubscription, 'c')
+    );
+    $stmt->execute([$today, $tomorrow]);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $custom) {
+        $reminders[] = [
+            'user_id' => (int) $custom['user_id'],
+            'key' => "custom:{$custom['id']}:{$custom['remind_on']}",
+            'title' => "Reminder: {$custom['title']}",
+            'body' => ($custom['body'] !== null && $custom['body'] !== '' ? $custom['body'] . ' · ' : '')
+                . ucfirst(reminderDayLabel($custom['remind_on'], $today)),
+            'url' => $custom['trip_id'] ? tripDetailsUrl((int) $custom['trip_id']) : DASHBOARD_PATH,
+        ];
+    }
 
     $stmt = $pdo->prepare("
         SELECT s.id, s.user_id, s.trip_id, s.name, s.city, s.activity_date
@@ -151,10 +190,10 @@ function findDueReminders(PDO $pdo, DateTimeImmutable $now): array
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $activity) {
         $reminders[] = [
             'user_id' => (int) $activity['user_id'],
-            'key'     => "activity:{$activity['id']}:{$activity['activity_date']}",
-            'title'   => 'Activity ' . reminderDayLabel($activity['activity_date'], $today),
-            'body'    => "{$activity['name']}, {$activity['city']}",
-            'url'     => tripDetailsUrl((int) $activity['trip_id']),
+            'key' => "activity:{$activity['id']}:{$activity['activity_date']}",
+            'title' => 'Activity ' . reminderDayLabel($activity['activity_date'], $today),
+            'body' => "{$activity['name']}, {$activity['city']}",
+            'url' => tripDetailsUrl((int) $activity['trip_id']),
         ];
     }
 
@@ -176,39 +215,51 @@ function sendDueReminders(PDO $pdo, ?DateTimeImmutable $now = null): array
     $record = $pdo->prepare("INSERT INTO user_notifications (user_id, title, body, url) VALUES (?, ?, ?, ?)");
 
     foreach (findDueReminders($pdo, $now) as $reminder) {
-        // TODO (notification preferences): once users can choose which
-        // reminders they want, skip any $reminder the user has turned off
-        // here (e.g. based on the type prefix of $reminder['key'], such as
-        // "trip:", "activity:", "flight:"), before anything is sent. The
-        // settings UI for it belongs in the Notifications section of
-        // Pages/userDashboard/settings.php.
 
-        // Claiming the log row first means two overlapping runs can never
-        // both send the same reminder.
-        $claim->execute([$reminder['user_id'], $reminder['key']]);
-        if ($claim->rowCount() === 0) {
-            $counts['skipped']++;
-            continue;
+        // Load each user's preferences once per run rather than per reminder.
+        $prefsCache = [];
+        $prefsFor = function (int $userId) use ($pdo, &$prefsCache): array {
+            if (!isset($prefsCache[$userId])) {
+                $prefsCache[$userId] = getNotificationPreferences($pdo, $userId);
+            }
+            return $prefsCache[$userId];
+        };
+
+        foreach (findDueReminders($pdo, $now) as $reminder) {
+            // the user's notification preferences.
+            if (!isReminderEnabled($prefsFor($reminder['user_id']), $reminder['key'])) {
+                $counts['skipped']++;
+                continue;
+            }
+
+
+            // Claiming the log row first means two overlapping runs can never
+            // both send the same reminder.
+            $claim->execute([$reminder['user_id'], $reminder['key']]);
+            if ($claim->rowCount() === 0) {
+                $counts['skipped']++;
+                continue;
+            }
+
+            $delivered = sendPushToUser($pdo, $reminder['user_id'], [
+                'title' => $reminder['title'],
+                'body' => $reminder['body'],
+                'url' => $reminder['url'],
+                'tag' => $reminder['key'],
+            ]);
+
+            if ($delivered > 0) {
+                // Kept for the in-app notification bell.
+                $record->execute([$reminder['user_id'], $reminder['title'], $reminder['body'], $reminder['url']]);
+                $counts['sent']++;
+            } else {
+                // Nothing got through (push service down, network blip) — let
+                // the next run try again.
+                $release->execute([$reminder['user_id'], $reminder['key']]);
+                $counts['failed']++;
+            }
         }
 
-        $delivered = sendPushToUser($pdo, $reminder['user_id'], [
-            'title' => $reminder['title'],
-            'body'  => $reminder['body'],
-            'url'   => $reminder['url'],
-            'tag'   => $reminder['key'],
-        ]);
-
-        if ($delivered > 0) {
-            // Kept for the in-app notification bell.
-            $record->execute([$reminder['user_id'], $reminder['title'], $reminder['body'], $reminder['url']]);
-            $counts['sent']++;
-        } else {
-            // Nothing got through (push service down, network blip) — let
-            // the next run try again.
-            $release->execute([$reminder['user_id'], $reminder['key']]);
-            $counts['failed']++;
-        }
+        return $counts;
     }
-
-    return $counts;
 }
