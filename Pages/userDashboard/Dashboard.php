@@ -384,7 +384,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_expense'])) {
             ]);
 
             // Prevent duplicate form submission if page is refreshed
-            header('Location: ' . $_SERVER['REQUEST_URI']);
+            header('Location: Dashboard.php?open_trip=' . (int)$tripId);
             exit();
 
         } catch (Throwable $e) {
@@ -487,7 +487,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_share_link']
     if ($tripId && tripBelongsToUser($pdo, $tripId, $_SESSION['user_id'])) {
         try {
             createShareLink($pdo, $tripId, (int) $_SESSION['user_id']);
-            header('Location: ' . $_SERVER['REQUEST_URI']);
+            header('Location: Dashboard.php?open_trip=' . (int)$tripId);
             exit();
         } catch (PDOException $e) {
             error_log('Share link generation error: ' . $e->getMessage());
@@ -506,7 +506,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_share_link']))
     if ($tripId && tripBelongsToUser($pdo, $tripId, $_SESSION['user_id'])) {
         try {
             setShareLinkActive($pdo, $tripId, (int) $_SESSION['user_id'], $activate);
-            header('Location: ' . $_SERVER['REQUEST_URI']);
+            header('Location: Dashboard.php?open_trip=' . (int)$tripId);
             exit();
         } catch (PDOException $e) {
             error_log('Share link toggle error: ' . $e->getMessage());

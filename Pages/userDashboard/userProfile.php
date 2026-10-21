@@ -329,6 +329,8 @@ if (
                     $_SESSION['user_id']
                 ]);
 
+                // Update the current session with the new username
+                $_SESSION['name'] = $newUsername;
 
                 /*
                  * Redirect prevents another update
@@ -667,7 +669,7 @@ if (!$user) {
                         <p>Username requirements:</p>
 
                         <ul>
-                            <li>3–30 characters</li>
+                            <li>At least 8 characters</li>
                             <li>Letters and numbers are allowed</li>
                             <li>Spaces, underscores (_) and hyphens (-) are allowed</li>
                         </ul>
@@ -915,14 +917,13 @@ if (!$user) {
                 /* Length */
 
                 if (
-                    username.length < 3 ||
-                    username.length > 30
+                    username.length < 8
                 ) {
 
                     event.preventDefault();
 
                     usernameFormError.textContent =
-                        'Username must be between 3 and 30 characters.';
+                        'Username must be at least 8 characters.';
 
                     usernameFormError.classList.add('show');
 
