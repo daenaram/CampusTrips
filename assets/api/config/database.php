@@ -377,6 +377,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS user_reminders (
     user_id       INT           NOT NULL,
     trip_id       INT           NULL,
     reminder_type ENUM('visa','custom') NOT NULL DEFAULT 'custom',
+    category      VARCHAR(30) NOT NULL DEFAULT 'custom',
     title         VARCHAR(150)  NOT NULL,
     body          VARCHAR(500)  NULL,
     remind_on     DATE          NOT NULL,

@@ -19,7 +19,8 @@ $stmt->execute([(int) $_SESSION['user_id']]);
 $userTrips = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Reminders the user has already created.
-$stmt = $pdo->prepare("SELECT id, reminder_type, title, remind_on FROM user_reminders WHERE user_id = ? ORDER BY remind_on ASC");
+// Reminders created by the logged-in user.
+$stmt = $pdo->prepare("SELECT r.id, r.reminder_type, r.category, r.title, r.body, r.remind_on, r.trip_id, t.title AS trip_title FROM user_reminders r LEFT JOIN trips t ON r.trip_id = t.id AND t.user_id = r.user_id WHERE r.user_id = ? ORDER BY r.remind_on ASC, r.id ASC");
 $stmt->execute([(int) $_SESSION['user_id']]);
 $userReminders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -250,6 +251,152 @@ $userReminders = $stmt->fetchAll(PDO::FETCH_ASSOC);
             font-size: 13px;
         }
 
+        /*CUSTOM REMINDERS*/
+
+        #custom-reminders-section {
+            margin-top: 20px;
+        }
+
+        .reminder-form {
+            display: grid;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .reminder-form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .reminder-form-row label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #344054;
+        }
+
+        .reminder-form-row .settings-select {
+            width: 100%;
+            min-width: 0;
+        }
+
+        #addReminder {
+            justify-self: start;
+            margin-top: 8px;
+        }
+
+        .reminder-list {
+            list-style: none;
+            margin: 18px 0 0;
+            padding: 0;
+            display: grid;
+            gap: 14px;
+        }
+
+        .reminder-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+
+            padding: 18px;
+
+            border: 1px solid #e4e7ec;
+            border-radius: 10px;
+
+            background: #fff;
+        }
+
+        .reminder-item-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .reminder-item-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .reminder-item-header > strong {
+            color: #222;
+            font-size: 16px;
+        }
+
+        .reminder-type-badge {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            background: #e8f4fb;
+            color: #0873ae;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .reminder-date,
+        .reminder-trip,
+        .reminder-notes {
+            margin: 7px 0;
+            color: #555;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .reminder-date strong,
+        .reminder-trip strong {
+            color: #333;
+        }
+
+        .reminder-notes {
+            margin-top: 12px;
+            overflow-wrap: anywhere;
+        }
+
+        .reminder-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .reminder-empty {
+            padding: 28px 20px;
+            text-align: center;
+            background: #f8fafc;
+            border: 1px dashed #d0d5dd;
+            border-radius: 10px;
+        }
+
+        .reminder-empty p {
+            margin: 0 0 6px;
+            color: #344054;
+            font-weight: 600;
+        }
+
+        .reminder-empty span {
+            font-size: 13px;
+            color: #777;
+        }
+
+        @media (max-width: 600px) {
+            .reminder-item {
+                flex-direction: column;
+            }
+
+            .reminder-actions {
+                width: 100%;
+            }
+
+            .reminder-actions button {
+                flex: 1;
+            }
+
+            #addReminder {
+                width: 100%;
+            }
+        }
+
         @media (max-width: 600px) {
             .settings-page {
                 padding: 90px 15px 30px;
@@ -454,6 +601,13 @@ $userReminders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             <?php endforeach; ?>
 
+            </section>
+
+            <!-- Custom Reminders -->
+            <section class="settings-card" id="custom-reminders-section">
+            <h2>My Reminders</h2>
+            <p>Create and manage personal travel reminders for important tasks, deadlines, and upcoming trips.</p>
+
             <h3 class="settings-subheading">Create a reminder</h3>
             <p class="settings-subheading-hint">
                 Add your own visa deadline or custom reminder. You'll be reminded the day before and on the day.
@@ -463,8 +617,17 @@ $userReminders = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <div class="reminder-form-row">
                     <label for="reminderType">Type</label>
                     <select id="reminderType" class="settings-select">
-                        <option value="visa">Visa deadline</option>
-                        <option value="custom">Custom reminder</option>
+                        <option value="">Select reminder type</option>
+                        <option value="flight">Flight</option>
+                        <option value="accommodation">Accommodation</option>
+                        <option value="activity">Activity</option>
+                        <option value="visa">Visa &amp; Documents</option>
+                        <option value="payment">Payment</option>
+                        <option value="insurance">Travel Insurance</option>
+                        <option value="packing">Packing</option>
+                        <option value="transport">Transportation</option>
+                        <option value="custom">General / Custom</option>
+                    </select>
                     </select>
                 </div>
 
@@ -501,21 +664,38 @@ $userReminders = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
 
             <!-- The reminders this user has already created. -->
-            <?php if (!empty($userReminders)): ?>
-                <ul class="reminder-list">
+            <h3 class="settings-subheading">Your saved reminders</h3>
+
+            <?php if (empty($userReminders)): ?>
+                <div class="reminder-empty">
+                    <p>You haven't created any reminders yet.</p>
+                    <span>Use the form above to add your first travel reminder.</span>
+                </div>
+                <?php else: ?>
+                    <ul class="reminder-list">
                     <?php foreach ($userReminders as $r): ?>
-                        <li class="reminder-item">
-                            <span>
-                                <strong><?php echo htmlspecialchars($r['title']); ?></strong>
-                                <em><?php echo $r['reminder_type'] === 'visa' ? 'Visa deadline' : 'Custom'; ?></em>
-                                · <?php echo htmlspecialchars($r['remind_on']); ?>
-                            </span>
-                            <button type="button" class="settings-button secondary reminder-delete"
-                                data-id="<?php echo (int) $r['id']; ?>">Delete</button>
-                        </li>
+                    <li class="reminder-item">
+                    <div class="reminder-item-details">
+                        <div class="reminder-item-header">
+                            <strong><?php echo htmlspecialchars($r['title']); ?></strong>
+                            <span class="reminder-type-badge"><?php $categoryLabels = [ 'flight' => 'Flight', 'accommodation' => 'Accommodation', 'activity' => 'Activity', 'visa' => 'Visa & Documents', 'payment' => 'Payment', 'insurance' => 'Travel Insurance', 'packing' => 'Packing', 'transport' => 'Transportation', 'custom' => 'General / Custom']; echo htmlspecialchars($categoryLabels[$r['category'] ?? 'custom'] ?? 'General / Custom');?></span>
+                        </div>
+                        <p class="reminder-date"><strong>Reminder Date: </strong><?php echo htmlspecialchars(date('d M Y', strtotime($r['remind_on'])));?></p>
+                    <?php if (!empty($r['trip_title'])): ?>
+                        <p class="reminder-trip"><strong>Trip: </strong><?php echo htmlspecialchars($r['trip_title']);?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($r['body'])): ?>
+                        <p class="reminder-notes"><strong>Notes: </strong><?php echo nl2br(htmlspecialchars($r['body']));?></p>
+                    <?php endif; ?>
+                    </div>
+                    <div class="reminder-actions">
+                        <button type="button" class="settings-button secondary reminder-delete" data-id="<?php echo (int)$r['id']; ?>">Delete</button>
+                    </div>
+
+                    </li>
                     <?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
+                    </ul>
+                <?php endif; ?>
         </section>
 
 
@@ -773,7 +953,12 @@ $userReminders = $stmt->fetchAll(PDO::FETCH_ASSOC);
             addReminder.addEventListener('click', function () {
                 const formData = new FormData();
                 formData.append('action', 'create');
-                formData.append('reminder_type', document.getElementById('reminderType').value);
+                const selectedCategory = document.getElementById('reminderType').value;
+                if (!selectedCategory) {
+                    showReminderFeedback('Please select a reminder type.', true);
+                    return;
+                }
+                formData.append('category', selectedCategory);
                 formData.append('title', document.getElementById('reminderTitle').value);
                 formData.append('remind_on', document.getElementById('reminderDate').value);
                 formData.append('trip_id', document.getElementById('reminderTrip').value);

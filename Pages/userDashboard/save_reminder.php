@@ -40,17 +40,22 @@ if ($action === 'delete') {
 }
 
 // ---------- Create a reminder ----------
-$type = $_POST['reminder_type'] ?? 'custom';
+$category = strtolower(trim($_POST['category'] ?? 'custom'));
+$allowedCategories = ['flight', 'accommodation', 'activity', 'visa', 'payment', 'insurance', 'packing', 'transport', 'custom'];
+if (!in_array($category, $allowedCategories, true)) {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Please select a valid reminder category.'
+    ]);
+    exit;
+}
+
+// Preserve compatibility with the existing reminder system.
+$type = $category === 'visa' ? 'visa' : 'custom';
 $title = trim($_POST['title'] ?? '');
 $body = trim($_POST['body'] ?? '');
 $date = trim($_POST['remind_on'] ?? '');
 $tripId = (int) ($_POST['trip_id'] ?? 0);
-
-// Only these two types are allowed.
-if (!in_array($type, ['visa', 'custom'], true)) {
-    echo json_encode(['status' => 'error', 'message' => 'Invalid reminder type.']);
-    exit;
-}
 
 // The title is required.
 if ($title === '') {
@@ -89,9 +94,10 @@ $tripId = $tripId > 0 ? $tripId : null;
 
 // Save the reminder.
 $stmt = $pdo->prepare("
-    INSERT INTO user_reminders (user_id, trip_id, reminder_type, title, body, remind_on)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO user_reminders (user_id, trip_id, reminder_type, category, title, body, remind_on)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
 ");
-$stmt->execute([$userId, $tripId, $type, $title, ($body === '' ? null : $body), $date]);
+
+$stmt->execute([$userId, $tripId, $type, $category, $title, ($body === '' ? null : $body), $date]);
 
 echo json_encode(['status' => 'success', 'message' => 'Reminder added.']);

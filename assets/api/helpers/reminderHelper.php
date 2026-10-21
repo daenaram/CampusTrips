@@ -140,63 +140,50 @@ function findDueReminders(PDO $pdo, DateTimeImmutable $now): array
         ];
     }
 
-    //Visa deadline reminders
-    $in7DaysDate = $now->modify('+7 days')->format('Y-m-d');
-    $stmt = $pdo->prepare("
-        SELECT v.id, v.user_id, v.trip_id, v.country, v.deadline_date,t.title AS trip_title 
-        FROM visa_deadlines v LEFT JOIN trips t ON t.id = v.trip_id 
-        WHERE v.deadline_date >= ? AND v.deadline_date <= ? AND " . sprintf($hasSubscription, 'v')
-    );
-    $stmt->execute([$today, $in7DaysDate]);
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $visa ) {
-        $isFinal = $visa['deadline_date'] <= $tomorrow;
-        $deadline = new DateTimeImmutable($visa['deadline_date'], $now->getTimezone());
-         $reminders[] = [
-            'user_id' => (int) $visa['user_id'],
-            'key'     => 'visa-' . ($isFinal ? '24h' : '7d') . ":{$visa['id']}:{$visa['deadline_date']}",
-            'title'   => $isFinal
-                ? "Final reminder: visa deadline for {$visa['country']} is " . reminderDayLabel($visa['deadline_date'], $today)
-                : "Visa deadline for {$visa['country']} in " . daysAwayLabel($now, $deadline),
-            'body'    => "Deadline " . $deadline->format('D j M')
-                . ($visa['trip_title'] ? " · Trip: {$visa['trip_title']}" : ''),
-            'url'     => $visa['trip_id'] ? tripDetailsUrl((int) $visa['trip_id']) : DASHBOARD_PATH,
-        ];
-    }
+    // //Visa deadline reminders
+    // $in7DaysDate = $now->modify('+7 days')->format('Y-m-d');
+    // $stmt = $pdo->prepare("
+    //     SELECT v.id, v.user_id, v.trip_id, v.country, v.deadline_date,t.title AS trip_title 
+    //     FROM visa_deadlines v LEFT JOIN trips t ON t.id = v.trip_id 
+    //     WHERE v.deadline_date >= ? AND v.deadline_date <= ? AND " . sprintf($hasSubscription, 'v')
+    // );
+    // $stmt->execute([$today, $in7DaysDate]);
+    // foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $visa ) {
+    //     $isFinal = $visa['deadline_date'] <= $tomorrow;
+    //     $deadline = new DateTimeImmutable($visa['deadline_date'], $now->getTimezone());
+    //      $reminders[] = [
+    //         'user_id' => (int) $visa['user_id'],
+    //         'key'     => 'visa-' . ($isFinal ? '24h' : '7d') . ":{$visa['id']}:{$visa['deadline_date']}",
+    //         'title'   => $isFinal
+    //             ? "Final reminder: visa deadline for {$visa['country']} is " . reminderDayLabel($visa['deadline_date'], $today)
+    //             : "Visa deadline for {$visa['country']} in " . daysAwayLabel($now, $deadline),
+    //         'body'    => "Deadline " . $deadline->format('D j M')
+    //             . ($visa['trip_title'] ? " · Trip: {$visa['trip_title']}" : ''),
+    //         'url'     => $visa['trip_id'] ? tripDetailsUrl((int) $visa['trip_id']) : DASHBOARD_PATH,
+    //     ];
+    // }
 
-    //custom reminders the user creates
+    // Custom reminders created by users.
+    // Both custom reminders and visa deadlines are stored
+    // in user_reminders, distinguished by reminder_type.
     $stmt = $pdo->prepare("
-        SELECT c.id, c.user_id, c.trip_id, c.title, c.body, c.remind_on
-        FROM custom_reminders c
-        WHERE c.remind_on IN (?, ?) AND " . sprintf($hasSubscription, 'c')
+        SELECT r.id, r.user_id, r.trip_id, r.title, r.body, r.remind_on
+        FROM user_reminders r
+        WHERE r.reminder_type = 'custom' AND r.remind_on IN (?, ?) AND " . sprintf($hasSubscription, 'r')
     );
+
     $stmt->execute([$today, $tomorrow]);
+
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $custom) {
         $reminders[] = [
             'user_id' => (int) $custom['user_id'],
             'key' => "custom:{$custom['id']}:{$custom['remind_on']}",
             'title' => "Reminder: {$custom['title']}",
-            'body' => ($custom['body'] !== null && $custom['body'] !== '' ? $custom['body'] . ' · ' : '')
+            'body' => ($custom['body'] !== null && $custom['body'] !== '' ? $custom['body'] . ' · ' : '') 
                 . ucfirst(reminderDayLabel($custom['remind_on'], $today)),
             'url' => $custom['trip_id'] ? tripDetailsUrl((int) $custom['trip_id']) : DASHBOARD_PATH,
         ];
     }
-
-    $stmt = $pdo->prepare("
-        SELECT s.id, s.user_id, s.trip_id, s.name, s.city, s.activity_date
-        FROM saved_activities s
-        WHERE s.activity_date IN (?, ?) AND " . sprintf($hasSubscription, 's')
-    );
-    $stmt->execute([$today, $tomorrow]);
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $activity) {
-        $reminders[] = [
-            'user_id' => (int) $activity['user_id'],
-            'key' => "activity:{$activity['id']}:{$activity['activity_date']}",
-            'title' => 'Activity ' . reminderDayLabel($activity['activity_date'], $today),
-            'body' => "{$activity['name']}, {$activity['city']}",
-            'url' => tripDetailsUrl((int) $activity['trip_id']),
-        ];
-    }
-
     return $reminders;
 }
 
